@@ -1,0 +1,9 @@
+[package]
+name        = "hoops-adapter-interface"
+version     = "0.1.0"
+edition     = { workspace = true }
+publish     = false
+
+[dependencies]
+soroban-sdk  = { workspace = true }
+hoops-common = { path = "../common" }

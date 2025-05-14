@@ -1,0 +1,31 @@
+[workspace]
+resolver = "2"
+members   = [
+    "common",
+    "adapter-interface",
+    "adapters/*",
+    "router",
+    "account",
+    "account_deployer",
+]
+
+[workspace.package]
+version     = "0.1.0"
+edition     = "2021"
+license     = "Apache-2.0"
+homepage    = "https://github.com/hoops-fi/contracts"
+repository  = "https://github.com/hoops-fi/contracts"
+
+[workspace.dependencies]
+soroban-sdk             = "21.0.1-preview.3"
+hoops-common            = { path = "./common" }
+hoops-adapter-interface = { path = "./adapter-interface" }
+
+[profile.release]
+opt-level        = "z"
+lto              = true
+codegen-units    = 1
+strip            = "symbols"
+panic            = "abort"
+overflow-checks  = true
+debug-assertions = false
