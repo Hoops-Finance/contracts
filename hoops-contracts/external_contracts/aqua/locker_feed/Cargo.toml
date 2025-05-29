@@ -1,0 +1,18 @@
+[package]
+name = "locker-feed"
+version.workspace = true
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+soroban-sdk = { workspace = true }
+access_control = { path = "../access_control" }
+upgrade = { path = "../upgrade" }
+paste = { workspace = true }
+utils = { path = "../utils" }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

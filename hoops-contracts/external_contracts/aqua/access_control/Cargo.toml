@@ -1,0 +1,17 @@
+[package]
+name = "access_control"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+utils = { path = "../utils" }
+liquidity-pool-validation-errors = { path = "../liquidity_pool_validation_errors" }
+
+[dev-dependencies]
+utils = { path = "../utils", features = ["testutils"] }

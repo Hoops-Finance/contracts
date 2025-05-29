@@ -1,0 +1,24 @@
+[package]
+name = "soroban-liquidity-pool-stableswap-contract"
+version.workspace = true
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+soroban-sdk = { workspace = true }
+access_control = { path = "../access_control" }
+rewards = { path = "../rewards" }
+token_share = { path = "../token_share" }
+utils = { path = "../utils" }
+paste = { workspace = true }
+liquidity-pool-validation-errors = { path = "../liquidity_pool_validation_errors" }
+liquidity-pool-events = { path = "../liquidity_pool_events" }
+soroban-fixed-point-math = { workspace = true }
+upgrade = { path = "../upgrade" }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+utils = { path = "../utils", features = ["testutils"] }

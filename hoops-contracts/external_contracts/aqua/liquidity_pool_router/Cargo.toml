@@ -1,0 +1,22 @@
+[package]
+name = "soroban-liquidity-pool-router-contract"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+soroban-sdk = { workspace = true }
+paste = "1.0.14"
+access_control = { path = "../access_control" }
+utils = { path = "../utils" }
+rewards = { path = "../rewards" }
+token_share = { path = "../token_share" }
+liquidity-pool-validation-errors = { path = "../liquidity_pool_validation_errors" }
+upgrade = { path = "../upgrade" }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+utils = { workspace = true, features = ["testutils"] }

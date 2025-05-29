@@ -1,0 +1,29 @@
+[package]
+name = "soroban-liquidity-pool-contract"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = { workspace = true }
+rewards = { path = "../rewards" }
+token_share = { path = "../token_share" }
+access_control = { path = "../access_control" }
+utils = { path = "../utils" }
+liquidity-pool-validation-errors = { path = "../liquidity_pool_validation_errors" }
+liquidity-pool-events = { path = "../liquidity_pool_events" }
+soroban-fixed-point-math = { workspace = true }
+upgrade = { path = "../upgrade" }
+paste = "1.0.14"
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+utils = { workspace = true, features = ["testutils"] }
+
+[features]
+default = []
+slow_tests = []
