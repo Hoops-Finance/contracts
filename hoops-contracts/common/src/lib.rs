@@ -1,16 +1,17 @@
 #![no_std]
 
-use soroban_sdk::{contractclient, contractspecfn, Address, Env, Vec};
-use hoops_common::CommonError;
+use soroban_sdk::{contractclient, contractspecfn, Address, Env, Vec, BytesN, contracterror};
 
 /// Adapter‑local error.
+#[contracterror]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u32)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum AdapterError {
-    Common(CommonError as u32) = 100,
-    UnsupportedPair            = 101,
-    ExternalFailure            = 102,
+    Common = 100,
+    UnsupportedPair = 101,
+    ExternalFailure = 102,
 }
+
 
 pub struct Spec;
 
@@ -20,8 +21,8 @@ pub struct Spec;
 pub trait Adapter {
     /* -------- lifecycle -------- */
     fn initialize(e: Env, amm_id: i128, amm_address: Address) -> Result<(), AdapterError>;
-    fn upgrade   (e: Env, new_wasm: [u8;32])               -> Result<(), AdapterError>;
-
+    fn upgrade   (e: Env, new_wasm: BytesN<32>) -> Result<(), AdapterError>;
+    fn version() -> u32;
     /* -------- swaps -------- */
     fn swap_exact_in(
         e: Env,
