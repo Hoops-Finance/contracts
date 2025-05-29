@@ -1,0 +1,106 @@
+[workspace]
+resolver = "2"
+members   = [
+    "common",
+    "adapter-interface",
+    "adapters/*",
+    "router",
+    "account",
+    "account_deployer",
+    # Aqua contracts
+    "external_contracts/aqua/utils",
+    "external_contracts/aqua/access_control",
+    "external_contracts/aqua/token_share",
+    "external_contracts/aqua/token",
+    "external_contracts/aqua/rewards",
+    "external_contracts/aqua/liquidity_pool",
+    "external_contracts/aqua/liquidity_pool_stableswap",
+    "external_contracts/aqua/liquidity_pool_router",
+    "external_contracts/aqua/liquidity_pool_liquidity_calculator",
+    "external_contracts/aqua/liquidity_pool_plane",
+    "external_contracts/aqua/liquidity_pool_validation_errors",
+    "external_contracts/aqua/liquidity_pool_events",
+    "external_contracts/aqua/fees_collector",
+    "external_contracts/aqua/upgrade",
+    "external_contracts/aqua/locker_feed",
+    "external_contracts/aqua/liquidity_pool_provider_swap_fee_factory",
+    "external_contracts/aqua/liquidity_pool_provider_swap_fee",
+    "external_contracts/aqua/integration_tests",
+    "external_contracts/aqua/upgrade",
+    # Comet contracts
+    "external_contracts/comet/factory",
+    "external_contracts/comet/pool",
+    # Phoenix contracts
+    "external_contracts/phoenix/factory",
+    "external_contracts/phoenix/multihop",
+    "external_contracts/phoenix/pool",
+    "external_contracts/phoenix/pool_stable",
+    "external_contracts/phoenix/stake",
+    "external_contracts/phoenix/token",
+    "external_contracts/phoenix/vesting",
+    "external_contracts/phoenix/trader",
+    # Soroswap contracts (already correct)
+    "external_contracts/soroswap/factory",
+    "external_contracts/soroswap/pair",
+    "external_contracts/soroswap/token",
+    "external_contracts/soroswap/factory-interface",
+    "external_contracts/soroswap/router",
+    "external_contracts/soroswap/library",
+]
+
+[workspace.package]
+version     = "0.1.0"
+edition     = "2021"
+license     = "Apache-2.0"
+homepage    = "https://github.com/hoops-fi/contracts"
+repository  = "https://github.com/hoops-fi/contracts"
+rust-version = "1.87.0"
+
+[workspace.dependencies]
+soroban-sdk            = { version = "22.0.8" }
+soroban-token-sdk      = { version = "22.0.8" }
+serde                  = { version = "1.0.219", default-features = false }
+serde-json-core        = { version = "0.6.0", default-features = false }
+sha256                 = { version = "1.5.0" }
+ed25519-dalek          = { version = "1.0.1" }
+base64                 = "0.22.1"
+stellar-strkey         = { version = "0.0.13" }
+hoops-common            = { path = "./common" }
+hoops-adapter-interface = { path = "./adapter-interface" }
+hoops-router           = { path = "./router" }
+hoops-account          = { path = "./account" }
+smart-wallet-interface = { path = "external_contracts/passkey-kit/smart-wallet-interface" }
+smart-wallet           = { path = "external_contracts/passkey-kit/smart-wallet" }
+example-contract       = { path = "external_contracts/passkey-kit/example-contract" }
+sample-policy         = { path = "external_contracts/passkey-kit/sample-policy" }
+# --- Aqua workspace dependencies ---
+utils = { path = "external_contracts/aqua/utils" }
+access_control = { path = "external_contracts/aqua/access_control" }
+token_share = { path = "external_contracts/aqua/token_share" }
+rewards = { path = "external_contracts/aqua/rewards" }
+upgrade = { path = "external_contracts/aqua/upgrade" }
+liquidity-pool-validation-errors = { path = "external_contracts/aqua/liquidity_pool_validation_errors" }
+liquidity-pool-events = { path = "external_contracts/aqua/liquidity_pool_events" }
+paste = { version = "1.0.15" }
+soroban-fixed-point-math = { version = "1.3.0" }
+# --- Phoenix workspace dependencies ---
+curve = { path = "external_contracts/phoenix/packages/curve" }
+soroban-decimal = { path = "external_contracts/phoenix/packages/decimal" }
+phoenix = { path = "external_contracts/phoenix/packages/phoenix" }
+num-integer = { version = "0.1.45", default-features = false, features = ["i128"] }
+test-case = "3.3"
+pretty_assertions = "1.4.0"
+
+[profile.release]
+opt-level       = "z"
+codegen-units   = 1
+lto             = true
+strip           = "symbols"
+overflow-checks = true
+panic           = "abort"
+debug           = 0
+debug-assertions  = false
+
+[profile.release-with-logs]
+inherits          = "release"
+debug-assertions  = true
