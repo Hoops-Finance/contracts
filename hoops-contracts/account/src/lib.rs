@@ -1,11 +1,29 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short,
+    contract, contractimpl, contracttype, symbol_short, contracterror,
     token::Client as TokenClient, Address, BytesN, Env, Vec,
 };
-use hoops_common::{admin, CommonError};
 
+pub mod hoops_router {
+    // Import the router contract
+    soroban_sdk::contractimport!(
+        file = "../target/wasm32v1-none/release/hoops_router.wasm"
+    );
+    pub type RouterClient<'a> = Client<'a>;
+}
+use hoops_router::{LpPlan, RouterClient};
+
+
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum AccountError {
+    AlreadyInitialized = 1,
+    NotAuthorized = 2,
+}
+
+#[contracttype]
 #[derive(Clone)]
 enum Key { Owner, Router }
 
@@ -19,22 +37,23 @@ pub struct Account;
 #[contractimpl]
 impl Account {
     /* ---- lifecycle ---- */
-    pub fn initialize(e: Env, owner: Address, router: Address) -> Result<(), CommonError> {
+    pub fn initialize(e: Env, owner: Address, router: Address) -> Result<(), AccountError> {
         if e.storage().instance().has(&Key::Owner) {
-            return Err(CommonError::AlreadyInitialised)
+            return Err(AccountError::AlreadyInitialized)
         }
         owner.require_auth();
         e.storage().instance().set(&Key::Owner, &owner);
         e.storage().instance().set(&Key::Router, &router);
-        admin::set(&e, owner);
         Ok(())
     }
-    pub fn upgrade(e: Env, wasm: [u8;32]) -> Result<(), CommonError> {
-        admin::upgrade(&e, BytesN::from_array(&e,&wasm))
+    pub fn upgrade(e: Env, wasm: BytesN<32>) -> Result<(), AccountError> {
+        Self::owner(&e).require_auth();
+        e.deployer().update_current_contract_wasm(wasm);
+        Ok(())
     }
 
     /* ---- token passthrough ---- */
-    pub fn transfer(e: Env, token: Address, to: Address, amount: i128) -> Result<(), CommonError> {
+    pub fn transfer(e: Env, token: Address, to: Address, amount: i128) -> Result<(), AccountError> {
         Self::owner(&e).require_auth();
         TokenClient::new(&e,&token)
             .transfer(&e.current_contract_address(), &to, &amount);
@@ -48,16 +67,18 @@ impl Account {
         e: Env,
         usdc: Address,
         amount: i128,
-        lp_plans: Vec<BytesN<32>>,
-        deadline: u64,
-    ) -> Result<(), CommonError> {
+        lp_plans: Vec<LpPlan>,
+        deadline: u32,
+    ) -> Result<(), AccountError> {
         let owner = Self::owner(&e);
         owner.require_auth();
         let tk = TokenClient::new(&e,&usdc);
         tk.transfer(&owner, &e.current_contract_address(), &amount);
-        tk.increase_allowance(&e.current_contract_address(), &Self::router(&e), &amount);
-        e.invoke_contract(&Self::router(&e), &"provide_liquidity",
-            (amount, lp_plans, e.current_contract_address(), deadline));
+        tk.approve(&e.current_contract_address(), &Self::router(&e), &amount, &deadline);
+        
+        let router_client = RouterClient::new(&e, &Self::router(&e));
+        router_client.provide_liquidity(&amount, &lp_plans, &e.current_contract_address(), &(deadline as u64));
+        
         e.events().publish(("acct", symbol_short!("dep")),
             TokenEvent{ token: usdc, amount });
         Ok(())
@@ -68,13 +89,15 @@ impl Account {
         lp_token: Address,
         lp_amount: i128,
         usdc: Address,
-        deadline: u64,
-    ) -> Result<(), CommonError> {
+        deadline: u32,
+    ) -> Result<(), AccountError> {
         Self::owner(&e).require_auth();
         TokenClient::new(&e,&lp_token)
-            .increase_allowance(&e.current_contract_address(), &Self::router(&e), &lp_amount);
-        e.invoke_contract(&Self::router(&e), &"redeem_liquidity",
-            (lp_token, lp_amount, e.current_contract_address(), deadline));
+            .approve(&e.current_contract_address(), &Self::router(&e), &lp_amount, &deadline);
+        
+        let router_client = RouterClient::new(&e, &Self::router(&e));
+        router_client.redeem_liquidity(&lp_token, &lp_amount, &e.current_contract_address(), &(deadline as u64));
+        
         // sweep USDC to owner
         let bal = TokenClient::new(&e,&usdc).balance(&e.current_contract_address());
         TokenClient::new(&e,&usdc)
@@ -85,6 +108,6 @@ impl Account {
     }
 
     /* ---- views ---- */
-    pub fn owner(e: &Env)  -> Address { e.storage().instance().get_unchecked(&Key::Owner) }
-    pub fn router(e: &Env) -> Address { e.storage().instance().get_unchecked(&Key::Router) }
+    pub fn owner(e: &Env)  -> Address { e.storage().instance().get(&Key::Owner).unwrap() }
+    pub fn router(e: &Env) -> Address { e.storage().instance().get(&Key::Router).unwrap() }
 }

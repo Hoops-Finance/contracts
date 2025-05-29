@@ -9,3 +9,4 @@ crate-type = ["cdylib"]
 [dependencies]
 soroban-sdk  = { workspace = true }
 hoops-common = { path = "../common" }
+hoops-router = { path = "../router" }
