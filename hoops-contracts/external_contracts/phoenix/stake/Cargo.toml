@@ -1,0 +1,26 @@
+[package]
+name = "phoenix-stake"
+version = "0.1.0"
+authors = ["Jakub <jakub@moonbite.space>"]
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+testutils = ["soroban-sdk/testutils"]
+upgrade = []
+
+[dependencies]
+soroban-decimal = { workspace = true }
+curve = { workspace = true }
+phoenix = { workspace = true }
+soroban-sdk = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin_include)"] }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+pretty_assertions = { workspace = true }

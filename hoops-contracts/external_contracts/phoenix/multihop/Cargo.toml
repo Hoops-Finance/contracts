@@ -1,0 +1,23 @@
+[package]
+name = "phoenix-multihop"
+version = "0.1.0"
+authors = ["Jakub <jakub@moonbite.space>"]
+edition = "2021"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+testutils = ["soroban-sdk/testutils"]
+upgrade = []
+
+[dependencies]
+soroban-sdk = { workspace = true }
+phoenix = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tarpaulin_include)"] }
+
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
