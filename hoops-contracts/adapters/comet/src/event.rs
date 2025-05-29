@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use soroban_sdk::{contracttype, symbol_short, Address, Env, Vec};
 
 #[contracttype]
@@ -14,9 +16,11 @@ pub struct AddLpEvent { pub token_a: Address, pub token_b: Address, pub lp: Addr
 
 #[contracttype]
 #[derive(Clone)]
+
 pub struct RemLpEvent { pub lp: Address, pub to: Address }
 
 pub(crate) fn init(e: &Env, amm: Address) { e.events().publish(("comet",symbol_short!("init")), InitEvent{amm}); }
+
 pub(crate) fn swap(e:&Env, ev:SwapEvent){ e.events().publish(("comet",symbol_short!("swap")), ev); }
 pub(crate) fn add_lp(e:&Env, ev:AddLpEvent){ e.events().publish(("comet",symbol_short!("addlp")), ev); }
 pub(crate) fn rem_lp(e:&Env, ev:RemLpEvent){ e.events().publish(("comet",symbol_short!("remlp")), ev); }
