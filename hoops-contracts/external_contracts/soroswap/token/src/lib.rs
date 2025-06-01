@@ -6,6 +6,6 @@ mod balance;
 mod contract;
 mod metadata;
 mod storage_types;
-mod test;
+mod soroswap_token_tests;
 
 pub use crate::contract::TokenClient;

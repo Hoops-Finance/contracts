@@ -1,6 +1,6 @@
 use crate::storage::DataKey;
 use soroban_sdk::Env;
-use utils::bump::bump_instance;
+use aqua_utils::bump::bump_instance;
 
 pub fn get_emergency_mode(e: &Env) -> bool {
     bump_instance(e);

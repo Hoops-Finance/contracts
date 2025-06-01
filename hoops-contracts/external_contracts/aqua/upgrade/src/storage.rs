@@ -1,5 +1,5 @@
 use soroban_sdk::{contracttype, BytesN, Env};
-use utils::bump::bump_instance;
+use aqua_utils::bump::bump_instance;
 
 #[derive(Clone)]
 #[contracttype]

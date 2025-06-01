@@ -5,9 +5,9 @@ use paste::paste;
 use soroban_sdk::{
     contracterror, contracttype, panic_with_error, Address, BytesN, Env, Map, Vec, U256,
 };
-use utils::bump::{bump_instance, bump_persistent, bump_temporary};
-use utils::storage_errors::StorageError;
-use utils::{
+use aqua_utils::bump::{bump_instance, bump_persistent, bump_temporary};
+use aqua_utils::storage_errors::StorageError;
+use aqua_utils::{
     generate_instance_storage_getter, generate_instance_storage_getter_and_setter,
     generate_instance_storage_getter_and_setter_with_default,
     generate_instance_storage_getter_with_default, generate_instance_storage_setter,

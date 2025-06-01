@@ -3,17 +3,17 @@ mod contract;
 mod error;
 mod storage;
 #[cfg(test)]
-mod tests;
+mod phoenix_trader_tests;
 
 pub mod token_contract {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/soroban_token_contract.wasm"
+        file = "../../../bytecodes/soroban_token_contract_phoenix.wasm"
     );
 }
 
 #[allow(clippy::too_many_arguments)]
 pub mod lp_contract {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/phoenix_pool.wasm"
+        file = "../../../bytecodes/phoenix_pool.wasm"
     );
 }

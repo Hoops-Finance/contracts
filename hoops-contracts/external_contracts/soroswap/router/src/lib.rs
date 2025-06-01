@@ -5,7 +5,7 @@ use soroswap_library::{SoroswapLibraryError};
 
 mod pair;
 mod factory;
-mod test;
+mod soroswap_router_tests;
 mod event;
 mod storage;
 mod error;

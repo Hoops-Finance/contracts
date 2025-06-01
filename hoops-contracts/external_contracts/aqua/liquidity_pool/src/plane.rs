@@ -1,7 +1,7 @@
 pub mod pool_plane {
     soroban_sdk::contractimport!(
         file =
-            "../../../target/wasm32v1-none/release/aqua_liquidity_pool_plane_contract.wasm"
+            "../../../bytecodes/aqua_liquidity_pool_plane_contract.wasm"
     );
 }
 

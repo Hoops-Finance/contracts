@@ -8,7 +8,7 @@ use soroban_sdk::{
 pub mod hoops_router {
     // Import the router contract
     soroban_sdk::contractimport!(
-        file = "../target/wasm32v1-none/release/hoops_router.wasm"
+        file = "../bytecodes/hoops_router.wasm"
     );
     pub type RouterClient<'a> = Client<'a>;
 }

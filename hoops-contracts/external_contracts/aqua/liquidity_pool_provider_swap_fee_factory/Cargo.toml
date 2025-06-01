@@ -1,5 +1,5 @@
 [package]
-name = "soroban-liquidity-pool-provider-swap-fee-factory-contract"
+name = "aqua-soroban-liquidity-pool-provider-swap-fee-factory-contract"
 version.workspace = true
 edition = "2021"
 publish = false
@@ -10,11 +10,11 @@ path = "src/lib.rs"
 
 [dependencies]
 soroban-sdk = { workspace = true }
-access_control = { path = "../access_control" }
-upgrade = { path = "../upgrade" }
+aqua_access_control = { path = "../access_control" }
+aqua-upgrade = { path = "../upgrade" }
 paste = { workspace = true }
-utils = { path = "../utils" }
+aqua-utils = { path = "../utils" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-utils = { path = "../utils", features = ["testutils"] }
+aqua-utils = { path = "../utils", features = ["testutils"] }

@@ -1,5 +1,5 @@
 [package]
-name = "integration-tests"
+name = "aqua-integration-tests"
 version.workspace = true
 edition = "2021"
 publish = false

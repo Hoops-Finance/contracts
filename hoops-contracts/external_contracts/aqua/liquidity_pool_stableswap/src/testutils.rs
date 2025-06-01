@@ -3,15 +3,15 @@
 use crate::plane::pool_plane;
 use crate::plane::pool_plane::Client as PoolPlaneClient;
 use crate::LiquidityPoolClient;
-use access_control::constants::ADMIN_ACTIONS_DELAY;
+use aqua_access_control::constants::ADMIN_ACTIONS_DELAY;
 use soroban_sdk::testutils::arbitrary::std;
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::token::{
     StellarAssetClient as SorobanTokenAdminClient, TokenClient as SorobanTokenClient,
 };
 use soroban_sdk::{Address, BytesN, Env, IntoVal, Symbol, Vec};
-use token_share::token_contract::Client as ShareTokenClient;
-use utils::test_utils::jump;
+use aqua_token_share::token_contract::Client as ShareTokenClient;
+use aqua_utils::test_utils::jump;
 
 pub(crate) fn create_token_contract<'a>(e: &Env, admin: &Address) -> SorobanTokenClient<'a> {
     SorobanTokenClient::new(
@@ -68,7 +68,7 @@ pub fn create_liqpool_contract<'a>(
 
 pub fn install_token_wasm(e: &Env) -> BytesN<32> {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/soroban_token_contract_aqua.wasm"
+        file = "../../../bytecodes/soroban_token_contract_aqua.wasm"
     );
     e.deployer().upload_contract_wasm(WASM)
 }
@@ -78,7 +78,8 @@ pub fn install_token_wasm_with_decimal<'a>(
     admin: &Address,
     decimal: u32,
 ) -> ShareTokenClient<'a> {
-    soroban_sdk::contractimport!(file = "../../../target/wasm32v1-none/release/token_share.wasm");
+    //soroban_sdk::contractimport!(file = "../../../bytecodes/token_share.wasm");
+    soroban_sdk::contractimport!(file = "../../../bytecodes/soroban_token_contract.wasm");
 
     let token_client = ShareTokenClient::new(e, &e.register(WASM, ()));
     token_client.initialize(admin, &decimal, &"Token 1".into_val(e), &"TOK".into_val(e));
@@ -91,7 +92,7 @@ pub fn create_plane_contract<'a>(e: &Env) -> PoolPlaneClient<'a> {
 
 mod reward_boost_feed {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/aqua_locker_feed_contract.wasm"
+        file = "../../../bytecodes/aqua_locker_feed_contract.wasm"
     );
 }
 

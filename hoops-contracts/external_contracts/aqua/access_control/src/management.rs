@@ -3,7 +3,7 @@ use crate::errors::AccessControlError;
 use crate::role::Role;
 use crate::storage::StorageTrait;
 use soroban_sdk::{panic_with_error, Address, Vec};
-use utils::bump::bump_instance;
+use aqua_utils::bump::bump_instance;
 
 pub trait SingleAddressManagementTrait {
     fn get_role_safe(&self, role: &Role) -> Option<Address>;

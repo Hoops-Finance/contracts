@@ -132,7 +132,7 @@ pub(crate) fn create_token_contract<'a>(e: &Env, admin: &Address) -> SorobanToke
 
 pub mod liquidity_pool {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/aqua_liquidity_pool_contract.wasm"
+        file = "../../../bytecodes/aqua_liquidity_pool_contract.wasm"
     );
 }
 
@@ -163,7 +163,7 @@ pub fn create_contract<'a>(
 pub mod swap_router {
     soroban_sdk::contractimport!(
         file =
-            "../../../target/wasm32v1-none/release/aqua_liquidity_pool_router_contract.wasm"
+            "../../../bytecodes/aqua_liquidity_pool_router_contract.wasm"
     );
 }
 
@@ -173,21 +173,21 @@ fn deploy_liqpool_router_contract<'a>(e: Env) -> swap_router::Client<'a> {
 
 fn install_token_wasm(e: &Env) -> BytesN<32> {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/soroban_token_contract_aqua.wasm"
+        file = "../../../bytecodes/soroban_token_contract_aqua.wasm"
     );
     e.deployer().upload_contract_wasm(WASM)
 }
 
 fn install_liq_pool_hash(e: &Env) -> BytesN<32> {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/aqua_liquidity_pool_contract.wasm"
+        file = "../../../bytecodes/aqua_liquidity_pool_contract.wasm"
     );
     e.deployer().upload_contract_wasm(WASM)
 }
 
 fn install_stableswap_liq_pool_hash(e: &Env) -> BytesN<32> {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/aqua_liquidity_pool_stableswap_contract.wasm"
+        file = "../../../bytecodes/aqua_liquidity_pool_stableswap_contract.wasm"
     );
     e.deployer().upload_contract_wasm(WASM)
 }
@@ -195,14 +195,14 @@ fn install_stableswap_liq_pool_hash(e: &Env) -> BytesN<32> {
 fn deploy_plane_contract<'a>(e: &Env) -> Address {
     soroban_sdk::contractimport!(
         file =
-            "../../../target/wasm32v1-none/release/aqua_liquidity_pool_plane_contract.wasm"
+            "../../../bytecodes/aqua_liquidity_pool_plane_contract.wasm"
     );
     Client::new(e, &e.register(WASM, ())).address
 }
 
 mod reward_boost_feed {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/aqua_locker_feed_contract.wasm"
+        file = "../../../bytecodes/aqua_locker_feed_contract.wasm"
     );
 }
 

@@ -1,5 +1,5 @@
 [package]
-name = "soroban-liquidity-pool-provider-swap-fee-contract"
+name = "aqua_soroban-liquidity-pool-provider-swap-fee-contract"
 version.workspace = true
 edition = "2021"
 publish = false
@@ -10,8 +10,8 @@ crate-type = ["cdylib"]
 [dependencies]
 soroban-sdk = { workspace = true }
 paste = { workspace = true }
-utils = { path = "../utils" }
+aqua-utils = { path = "../utils" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-utils = { path = "../utils", features = ["testutils"] }
+aqua-utils = { path = "../utils", features = ["testutils"] }

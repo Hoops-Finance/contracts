@@ -4,7 +4,7 @@ use soroban_sdk::{
     Address, Env, Vec, 
 };
 
-mod test;
+mod soroswap_library_tests;
 mod tokens;
 mod reserves;
 mod quotes;

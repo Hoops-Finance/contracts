@@ -19,7 +19,7 @@ The `soroswap-adapter` contract enables the Hoops Finance Router to interact wit
 
 ## Protocol Interaction
 - Uses `SoroswapRouterClient` and `SoroswapPairClient` (imported from WASM) to interact with Soroswap contracts.
-- The router and pair WASMs are imported from the `target/wasm32v1-none/release/` directory.
+- The router and pair WASMs are imported from the `bytecodes/` directory.
 
 ## Storage
 - Stores the router address and initialization state.

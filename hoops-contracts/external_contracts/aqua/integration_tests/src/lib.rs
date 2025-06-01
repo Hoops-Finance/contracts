@@ -1,5 +1,5 @@
 #![no_std]
 
 mod contracts;
-mod tests;
+mod aqua_integration_tests;
 mod testutils;

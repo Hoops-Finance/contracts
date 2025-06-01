@@ -31,7 +31,7 @@ mod tests {
     use soroban_sdk::{testutils::Address as _, vec, Address, Env};
 
     #[test]
-    fn verify_operations_in_swap_should_work() {
+    fn test_pho_multihop_verify_operations_in_swap_should_work() {
         let env = Env::default();
 
         let token1 = Address::generate(&env);
@@ -61,7 +61,7 @@ mod tests {
     }
 
     #[test]
-    fn verify_operations_in_reverse_swap_should_work() {
+    fn test_pho_multihop_verify_operations_in_reverse_swap_should_work() {
         let env = Env::default();
 
         let token1 = Address::generate(&env);
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Multihop: Verify Swap: Provided bad swap order")]
-    fn verify_operations_should_fail_when_bad_order_provided() {
+    fn test_pho_multihop_verify_operations_should_fail_when_bad_order_provided() {
         let env = Env::default();
 
         let token1 = Address::generate(&env);
@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Multihop: Verify Reverse Swap: Provided bad swap order")]
-    fn verify_operations_reverse_swap_should_fail_when_bad_order_provided() {
+    fn test_pho_multihop_verify_operations_reverse_swap_should_fail_when_bad_order_provided() {
         let env = Env::default();
 
         let token1 = Address::generate(&env);

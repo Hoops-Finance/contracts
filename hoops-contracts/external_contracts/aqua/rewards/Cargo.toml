@@ -1,5 +1,5 @@
 [package]
-name = "rewards"
+name = "aqua_rewards"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -10,9 +10,9 @@ doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
-utils = { path = "../utils" }
+aqua-utils = { path = "../utils" }
 soroban-fixed-point-math = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-utils = { path = "../utils", features = ["testutils"] }
+aqua-utils = { path = "../utils", features = ["testutils"] }

@@ -11,9 +11,9 @@ tasks:
 
   build:
     cmds:
-      - soroban contract build --package soroban-liquidity-pool-provider-swap-fee-contract
-      - soroban contract optimize --wasm ../../target/wasm32v1-none/release/aqua_liquidity_pool_provider_swap_fee_contract.wasm --wasm-out ../../target/wasm32v1-none/release/aqua_liquidity_pool_provider_swap_fee_contract.wasm
-      - le -l ../../target/wasm32v1-none/release/*.wasm
+      - soroban contract build --package aqua-soroban-liquidity-pool-provider-swap-fee-contract
+      - soroban contract optimize --wasm ../../bytecodes/aqua_liquidity_pool_provider_swap_fee_contract.wasm --wasm-out ../../bytecodes/aqua_liquidity_pool_provider_swap_fee_contract.wasm
+      - le -l ../../bytecodes/*.wasm
 
   test:
     deps:

@@ -61,4 +61,4 @@ impl Factory {
     }
 }
 
-mod test;
+mod comet_factory_tests;

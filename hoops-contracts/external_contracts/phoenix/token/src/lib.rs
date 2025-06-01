@@ -6,6 +6,6 @@ mod balance;
 mod contract;
 mod metadata;
 mod storage_types;
-mod test;
+mod phoenix_token_test;
 
 pub use crate::contract::TokenClient;

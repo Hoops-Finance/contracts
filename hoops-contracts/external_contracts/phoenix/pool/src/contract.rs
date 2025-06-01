@@ -1503,7 +1503,7 @@ mod tests {
     use soroban_sdk::{testutils::Address as _, Address};
 
     #[test]
-    fn test_assert_slippage_tolerance_success() {
+    fn test_pho_pool_assert_slippage_tolerance_success() {
         let env = Env::default();
         // Test case that should pass:
         // slippage tolerance of 5000 (0.5 or 50%), deposits of 10 and 20, pools of 30 and 60
@@ -1520,7 +1520,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Pool: Slippage tolerance exceeds the maximum allowed value")]
-    fn test_assert_slippage_tolerance_fail_tolerance_too_high() {
+    fn test_pho_pool_assert_slippage_tolerance_fail_tolerance_too_high() {
         let env = Env::default();
         // Test case that should fail due to slippage tolerance being too high
         let max_allowed_slippage = Decimal::bps(5_000i64);
@@ -1535,7 +1535,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "slippage tolerance violated")]
-    fn test_assert_slippage_tolerance_fail_slippage_violated() {
+    fn test_pho_pool_assert_slippage_tolerance_fail_slippage_violated() {
         let env = Env::default();
         let max_allowed_slippage = Decimal::bps(5_000i64);
         // The price changes from 10/15 (0.67) to 40/40 (1.00), violating the 10% slippage tolerance
@@ -1549,7 +1549,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assert_max_spread_success() {
+    fn test_pho_pool_assert_max_spread_success() {
         let env = Env::default();
         // Test case that should pass:
         // max spread of 10%, offer amount of 100k, return amount of 100k and 1 unit, spread amount of 1
@@ -1559,7 +1559,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "HostError: Error(Contract, #300)")]
-    fn test_assert_max_spread_fail_max_spread_exceeded() {
+    fn test_pho_pool_assert_max_spread_fail_max_spread_exceeded() {
         let env = Env::default();
 
         let max_spread = Decimal::percent(10); // 10% is the maximum allowed spread
@@ -1570,7 +1570,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assert_max_spread_success_no_belief_price() {
+    fn test_pho_pool_assert_max_spread_success_no_belief_price() {
         let env = Env::default();
         // max spread of 100 (0.1 or 10%), return amount of 10, spread amount of 1
         // The spread ratio is 10% which is equal to the max spread
@@ -1579,7 +1579,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "HostError: Error(Contract, #300)")]
-    fn test_assert_max_spread_fail_no_belief_price_max_spread_exceeded() {
+    fn test_pho_pool_assert_max_spread_fail_no_belief_price_max_spread_exceeded() {
         let env = Env::default();
         // max spread of 10%, return amount of 10, spread amount of 2
         // The spread ratio is 20% which is greater than the max spread
@@ -1587,7 +1587,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_swap_pass() {
+    fn test_pho_pool_compute_swap_pass() {
         let env = Env::default();
         let result = compute_swap(&env, 1000, 2000, 100, Decimal::percent(10), 0i64); // 10% commission rate
         let expected_compute_swap = ComputeSwap {
@@ -1601,7 +1601,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_swap_pass_with_referral_fee() {
+    fn test_pho_pool_pho_pool_test_compute_swap_pass_with_referral_fee() {
         // 10% commission rate + 15% referral fee
         // return_amount would be 164, but after we deduct 15% out of it we get to 139.4 rounded to
         // the closest number 140
@@ -1618,7 +1618,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_swap_full_commission() {
+    fn test_pho_pool_pho_pool_test_compute_swap_full_commission() {
         let env = Env::default();
         let result = compute_swap(&env, 1000, 2000, 100, Decimal::one(), 0i64); // 100% commission rate should lead to return_amount being 0
         let expected_compute_swap = ComputeSwap {
@@ -1632,7 +1632,7 @@ mod tests {
     }
 
     #[test]
-    fn test_compute_offer_amount() {
+    fn test_pho_pool_pho_pool_test_compute_offer_amount() {
         let env = Env::default();
         let offer_pool = 1000000;
         let ask_pool = 1000000;
@@ -1653,7 +1653,7 @@ mod tests {
 
     #[should_panic(expected = "Pool: Token offered to swap not found in Pool")]
     #[test]
-    fn should_panic_when_splitting_non_existent_token() {
+    fn test_pho_pool_pho_pool_should_panic_when_splitting_non_existent_token() {
         let env = Env::default();
         let config = &Config {
             token_a: Address::generate(&env),
@@ -1671,7 +1671,7 @@ mod tests {
     }
 
     #[test]
-    fn assert_slippage_tolerance_with_none_as_tolerance() {
+    fn test_pho_pool_pho_pool_assert_slippage_tolerance_with_none_as_tolerance() {
         let env = Env::default();
 
         // assert slippage tolerance with None as tolerance should pass as well
@@ -1679,7 +1679,7 @@ mod tests {
     }
 
     #[test]
-    fn convert_u256_to_i128() {
+    fn test_pho_pool_pho_pool_convert_u256_to_i128() {
         let env = Env::default();
         let u256_value = U256::from_u128(&env, 1_000_000_000_000_000);
         let converted_to_i128 = u256_to_i128(&env, u256_value);
@@ -1689,7 +1689,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Pool: Compute swap: Unable to convert U256 to i128")]
-    fn convert_u256_to_i128_should_panic_when_og_value_outside_the_i128_max_range() {
+    fn test_pho_pool_pho_pool_convert_u256_to_i128_should_panic_when_og_value_outside_the_i128_max_range() {
         let env = Env::default();
 
         // using `u128::MAX`, as this is larger than `i128::MAX`

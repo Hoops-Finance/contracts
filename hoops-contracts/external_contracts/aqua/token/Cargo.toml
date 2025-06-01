@@ -12,10 +12,10 @@ doctest = false
 [dependencies]
 soroban-sdk = { workspace = true }
 soroban-token-sdk = { workspace = true }
-access_control = { path = "../access_control" }
-utils = { path = "../utils" }
-upgrade = { path = "../upgrade" }
+aqua_access_control = { path = "../access_control" }
+aqua-utils = { path = "../utils" }
+aqua-upgrade = { path = "../upgrade" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-utils = { path = "../utils", features = ["testutils"] }
+aqua-utils = { path = "../utils", features = ["testutils"] }

@@ -2,9 +2,9 @@ use paste::paste;
 use soroban_sdk::{contracttype, panic_with_error, Address, BytesN, Env, Vec};
 
 use crate::normalize;
-use rewards::utils::bump::bump_instance;
-use utils::storage_errors::StorageError;
-use utils::{
+use aqua_rewards::aqua_utils::bump::bump_instance;
+use aqua_utils::storage_errors::StorageError;
+use aqua_utils::{
     generate_instance_storage_getter_and_setter_with_default,
     generate_instance_storage_getter_with_default, generate_instance_storage_setter,
 };

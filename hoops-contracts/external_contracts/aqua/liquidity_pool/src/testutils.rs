@@ -2,14 +2,14 @@
 extern crate std;
 use crate::plane::{pool_plane, PoolPlaneClient};
 use crate::LiquidityPoolClient;
-use access_control::constants::ADMIN_ACTIONS_DELAY;
+use aqua_access_control::constants::ADMIN_ACTIONS_DELAY;
 use soroban_sdk::token::{
     StellarAssetClient as SorobanTokenAdminClient, TokenClient as SorobanTokenClient,
 };
 use soroban_sdk::{testutils::Address as _, Address, BytesN, Env, Symbol, Vec};
 use std::vec;
-use token_share::token_contract::{Client as ShareTokenClient, WASM};
-use utils::test_utils::jump;
+use aqua_token_share::token_contract::{Client as ShareTokenClient, WASM};
+use aqua_utils::test_utils::jump;
 
 pub(crate) struct TestConfig {
     pub(crate) users_count: u32,
@@ -222,7 +222,7 @@ pub(crate) fn create_plane_contract<'a>(e: &Env) -> PoolPlaneClient<'a> {
 
 mod reward_boost_feed {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/aqua_locker_feed_contract.wasm"
+        file = "../../../bytecodes/aqua_locker_feed_contract.wasm"
     );
 }
 

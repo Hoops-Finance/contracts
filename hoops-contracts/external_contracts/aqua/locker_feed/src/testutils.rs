@@ -6,7 +6,7 @@ use soroban_sdk::testutils::{Address as _, Ledger, LedgerInfo};
 use soroban_sdk::{Address, BytesN, Env};
 
 pub fn install_dummy_wasm<'a>(e: &Env) -> BytesN<32> {
-    soroban_sdk::contractimport!(file = "../../../target/wasm32v1-none/release/aqua_dummy_contract.wasm");
+    soroban_sdk::contractimport!(file = "../../../bytecodes/aqua_dummy_contract.wasm");
     e.deployer().upload_contract_wasm(WASM)
 }
 

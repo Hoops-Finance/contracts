@@ -11,9 +11,9 @@ tasks:
 
   build:
     cmds:
-      - soroban contract build --package soroban-fees-collector-contract
-      - soroban contract optimize --wasm ../../target/wasm32v1-none/release/aqua_fees_collector_contract.wasm --wasm-out ../../target/wasm32v1-none/release/aqua_fees_collector_contract.wasm
-      - le -l ../../target/wasm32v1-none/release/*.wasm
+      - soroban contract build --package aqua-soroban-fees-collector-contract
+      - soroban contract optimize --wasm ../../bytecodes/aqua_fees_collector_contract.wasm --wasm-out ../../bytecodes/aqua_fees_collector_contract.wasm
+      - le -l ../../bytecodes/*.wasm
 
   test:
     deps:

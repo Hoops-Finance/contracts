@@ -13,7 +13,7 @@ use crate::storage::{
     set_plane, set_router, set_token_future_wasm,
 };
 use crate::token::create_contract;
-use token_share::{
+use aqua_token_share::{
     burn_shares, get_token_share, get_total_shares, get_user_balance_shares, mint_shares,
     put_token_share, Client as LPToken,
 };
@@ -24,24 +24,24 @@ use crate::normalize::{read_decimals, xp};
 use crate::plane::update_plane;
 use crate::plane_interface::Plane;
 use crate::rewards::get_rewards_manager;
-use access_control::access::{AccessControl, AccessControlTrait};
-use access_control::constants::ADMIN_ACTIONS_DELAY;
-use access_control::emergency::{get_emergency_mode, set_emergency_mode};
-use access_control::errors::AccessControlError;
-use access_control::events::Events as AccessControlEvents;
-use access_control::interface::TransferableContract;
-use access_control::management::{MultipleAddressesManagementTrait, SingleAddressManagementTrait};
-use access_control::role::Role;
-use access_control::role::SymbolRepresentation;
-use access_control::transfer::TransferOwnershipTrait;
-use access_control::utils::{
+use aqua_access_control::access::{AccessControl, AccessControlTrait};
+use aqua_access_control::constants::ADMIN_ACTIONS_DELAY;
+use aqua_access_control::emergency::{get_emergency_mode, set_emergency_mode};
+use aqua_access_control::errors::AccessControlError;
+use aqua_access_control::events::Events as AccessControlEvents;
+use aqua_access_control::interface::TransferableContract;
+use aqua_access_control::management::{MultipleAddressesManagementTrait, SingleAddressManagementTrait};
+use aqua_access_control::role::Role;
+use aqua_access_control::role::SymbolRepresentation;
+use aqua_access_control::transfer::TransferOwnershipTrait;
+use aqua_access_control::utils::{
     require_operations_admin_or_owner, require_pause_admin_or_owner,
     require_pause_or_emergency_pause_admin_or_owner, require_rewards_admin_or_owner,
 };
-use liquidity_pool_events::{Events as PoolEvents, LiquidityPoolEvents};
-use liquidity_pool_validation_errors::LiquidityPoolValidationError;
-use rewards::events::Events as RewardEvents;
-use rewards::storage::{
+use aqua_liquidity_pool_events::{Events as PoolEvents, LiquidityPoolEvents};
+use aqua_liquidity_pool_validation_errors::LiquidityPoolValidationError;
+use aqua_rewards::events::Events as RewardEvents;
+use aqua_rewards::storage::{
     BoostFeedStorageTrait, BoostTokenStorageTrait, PoolRewardsStorageTrait, RewardTokenStorageTrait,
 };
 use soroban_fixed_point_math::SorobanFixedPoint;
@@ -50,8 +50,8 @@ use soroban_sdk::{
     contract, contractimpl, contractmeta, panic_with_error, symbol_short, Address, BytesN, Env,
     IntoVal, Map, Symbol, Val, Vec, U256,
 };
-use upgrade::events::Events as UpgradeEvents;
-use upgrade::{apply_upgrade, commit_upgrade, revert_upgrade};
+use aqua_upgrade::events::Events as UpgradeEvents;
+use aqua_upgrade::{apply_upgrade, commit_upgrade, revert_upgrade};
 
 contractmeta!(
     key = "Description",
@@ -1679,7 +1679,7 @@ impl UpgradeableContract for LiquidityPool {
         AccessControl::new(&e).assert_address_has_role(&admin, &Role::Admin);
         let new_wasm_hash = apply_upgrade(&e);
         let token_new_wasm_hash = get_token_future_wasm(&e);
-        token_share::Client::new(&e, &get_token_share(&e))
+        aqua_token_share::Client::new(&e, &get_token_share(&e))
             .upgrade(&e.current_contract_address(), &token_new_wasm_hash);
 
         UpgradeEvents::new(&e).apply_upgrade(Vec::from_array(

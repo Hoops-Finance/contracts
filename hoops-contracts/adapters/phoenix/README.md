@@ -19,7 +19,7 @@ The `phoenix-adapter` contract enables the Hoops Finance Router to interact with
 
 ## Protocol Interaction
 - Uses `PhoenixPoolClient` (imported from WASM) to interact with Phoenix pool contracts.
-- The pool WASM is imported from the `target/wasm32v1-none/release/phoenix_pool.wasm` file.
+- The pool WASM is imported from the `bytecodes/phoenix_pool.wasm` file.
 
 ## Storage
 - Stores the pool address and initialization state.

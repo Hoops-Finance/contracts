@@ -492,7 +492,7 @@ mod tests {
     use test_case::test_case;
 
     #[test_case(524u128; "init constant y curve, should always return y")]
-    fn test_constant(y: u128) {
+    fn test_pho_curve_constant(y: u128) {
         let curve = Curve::constant(y);
 
         // always valid
@@ -509,7 +509,7 @@ mod tests {
     }
 
     #[test_case((100u64,0u128),(200u64,50u128); "test increasing linear, should monotonically increase linearly")]
-    fn test_increasing_linear(low: (u64, u128), high: (u64, u128)) {
+    fn test_pho_curve_increasing_linear(low: (u64, u128), high: (u64, u128)) {
         let curve = Curve::saturating_linear(low, high);
 
         // validly increasing
@@ -533,7 +533,7 @@ mod tests {
 
     //TODO: This case and the previous can be done in one
     #[test_case((1700u64,500u128),(2000u64,200u128); "test decreasing linear, should monotonically decrease linearly")]
-    fn test_decreasing_linear(low: (u64, u128), high: (u64, u128)) {
+    fn test_pho_curve_decreasing_linear(low: (u64, u128), high: (u64, u128)) {
         let curve = Curve::saturating_linear(low, high);
 
         // validly decreasing
@@ -556,7 +556,7 @@ mod tests {
 
     //TODO: We should capture panic on test_case
     #[test_case((15000u64,100u128),(12000u64,200u128); "test invalid linear, should panic")]
-    fn test_invalid_linear(low: (u64, u128), high: (u64, u128)) {
+    fn test_pho_curve_invalid_linear(low: (u64, u128), high: (u64, u128)) {
         let curve = Curve::saturating_linear(low, high);
 
         // always invalid
@@ -595,7 +595,7 @@ mod tests {
     }
 
     #[test_case((100u64,0),(200u64,50); "test piecewise two point increasing, should not fail")]
-    fn test_piecewise_two_point_increasing(low: (u64, u128), high: (u64, u128)) {
+    fn test_pho_curve_piecewise_two_point_increasing(low: (u64, u128), high: (u64, u128)) {
         let low = Step {
             time: low.0,
             value: low.1,
@@ -632,7 +632,7 @@ mod tests {
     }
 
     #[test_case((1700u64,500),(2000u64,200); "test piecewise two point decreasing, should not fail")]
-    fn test_piecewise_two_point_decreasing(low: (u64, u128), high: (u64, u128)) {
+    fn test_pho_curve_piecewise_two_point_decreasing(low: (u64, u128), high: (u64, u128)) {
         let low = Step {
             time: low.0,
             value: low.1,
@@ -668,7 +668,7 @@ mod tests {
     }
 
     #[test_case((15000u64,100u128),(12000u64,200u128); "test piecewise two point invalid, should fail")]
-    fn test_piecewise_two_point_invalid(low: (u64, u128), high: (u64, u128)) {
+    fn test_pho_curve_piecewise_two_point_invalid(low: (u64, u128), high: (u64, u128)) {
         let curve = Curve::saturating_linear(low, high);
 
         // always invalid
@@ -681,7 +681,7 @@ mod tests {
     }
 
     #[test_case((100,0),(200,100),(300,400); "test piecewise two point invalid, should not fail")]
-    fn test_piecewise_three_point_increasing(
+    fn test_pho_curve_piecewise_three_point_increasing(
         low: (u64, u128),
         mid: (u64, u128),
         high: (u64, u128),
@@ -729,7 +729,7 @@ mod tests {
     }
 
     #[test_case((100,400),(200,100),(300,0); "test piecewise three point decreasing, should not fail")]
-    fn test_piecewise_three_point_decreasing(
+    fn test_pho_curve_piecewise_three_point_decreasing(
         low: (u64, u128),
         mid: (u64, u128),
         high: (u64, u128),
@@ -777,7 +777,7 @@ mod tests {
     }
 
     #[test_case((100,400),(200,100),(300,300); "test piecewise three point invalid not monotonic, should fail")]
-    fn test_piecewise_three_point_invalid_not_monotonic(
+    fn test_pho_curve_piecewise_three_point_invalid_not_monotonic(
         low: (u64, u128),
         mid: (u64, u128),
         high: (u64, u128),
@@ -811,7 +811,7 @@ mod tests {
 
     // TODO: We can refactor this test based on the previous, changing the mid and high values on the previous one
     #[test_case((100,400),(200,100),(300,300); "test piecewise three point invalid out of order, should fail")]
-    fn test_piecewise_three_point_invalid_out_of_order(
+    fn test_pho_curve_piecewise_three_point_invalid_out_of_order(
         low: (u64, u128),
         mid: (u64, u128),
         high: (u64, u128),
@@ -847,7 +847,7 @@ mod tests {
     // TODO: multi-step bad
 
     #[test]
-    fn test_saturating_to_piecewise() {
+    fn test_pho_curve_saturating_to_piecewise() {
         let sl = SaturatingLinear {
             min_x: 15,
             min_y: 1,

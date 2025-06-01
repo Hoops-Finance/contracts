@@ -1,5 +1,5 @@
 [package]
-name = "soroban-liquidity-pool-contract"
+name = "aqua-soroban-liquidity-pool-contract"
 version = "0.1.0"
 edition = "2021"
 publish = false
@@ -10,19 +10,19 @@ doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
-rewards = { path = "../rewards" }
-token_share = { path = "../token_share" }
-access_control = { path = "../access_control" }
-utils = { path = "../utils" }
-liquidity-pool-validation-errors = { path = "../liquidity_pool_validation_errors" }
-liquidity-pool-events = { path = "../liquidity_pool_events" }
+aqua_rewards = { path = "../rewards" }
+aqua_token_share = { path = "../token_share" }
+aqua_access_control = { path = "../access_control" }
+aqua-utils = { path = "../utils" }
+aqua-liquidity-pool-validation-errors = { path = "../liquidity_pool_validation_errors" }
+aqua-liquidity-pool-events = { path = "../liquidity_pool_events" }
 soroban-fixed-point-math = { workspace = true }
-upgrade = { path = "../upgrade" }
+aqua-upgrade = { path = "../upgrade" }
 paste = "1.0.14"
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-utils = { workspace = true, features = ["testutils"] }
+aqua-utils = { workspace = true, features = ["testutils"] }
 
 [features]
 default = []

@@ -3,15 +3,6 @@
 version = 4
 
 [[package]]
-name = "access_control"
-version = "0.1.0"
-dependencies = [
- "liquidity-pool-validation-errors",
- "soroban-sdk",
- "utils",
-]
-
-[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -44,6 +35,174 @@ version = "0.1.0"
 dependencies = [
  "hoops-adapter-interface",
  "hoops-common",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-liquidity-pool-events"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-liquidity-pool-validation-errors"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-locker-feed"
+version = "0.1.0"
+dependencies = [
+ "aqua-upgrade",
+ "aqua-utils",
+ "aqua_access_control",
+ "paste",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-soroban-fees-collector-contract"
+version = "0.1.0"
+dependencies = [
+ "aqua-upgrade",
+ "aqua_access_control",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-soroban-liquidity-pool-contract"
+version = "0.1.0"
+dependencies = [
+ "aqua-liquidity-pool-events",
+ "aqua-liquidity-pool-validation-errors",
+ "aqua-upgrade",
+ "aqua-utils",
+ "aqua_access_control",
+ "aqua_rewards",
+ "aqua_token_share",
+ "paste",
+ "soroban-fixed-point-math",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-soroban-liquidity-pool-liquidity-calculator-contract"
+version = "0.1.0"
+dependencies = [
+ "aqua-upgrade",
+ "aqua_access_control",
+ "soroban-fixed-point-math",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-soroban-liquidity-pool-plane-contract"
+version = "0.1.0"
+dependencies = [
+ "aqua-upgrade",
+ "aqua_access_control",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-soroban-liquidity-pool-provider-swap-fee-factory-contract"
+version = "0.1.0"
+dependencies = [
+ "aqua-upgrade",
+ "aqua-utils",
+ "aqua_access_control",
+ "paste",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-soroban-liquidity-pool-router-contract"
+version = "0.1.0"
+dependencies = [
+ "aqua-liquidity-pool-validation-errors",
+ "aqua-upgrade",
+ "aqua-utils",
+ "aqua_access_control",
+ "aqua_rewards",
+ "aqua_token_share",
+ "paste",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-soroban-liquidity-pool-stableswap-contract"
+version = "0.1.0"
+dependencies = [
+ "aqua-liquidity-pool-events",
+ "aqua-liquidity-pool-validation-errors",
+ "aqua-upgrade",
+ "aqua-utils",
+ "aqua_access_control",
+ "aqua_rewards",
+ "aqua_token_share",
+ "paste",
+ "soroban-fixed-point-math",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-upgrade"
+version = "0.1.0"
+dependencies = [
+ "aqua-utils",
+ "aqua_access_control",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua-utils"
+version = "0.1.0"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua_access_control"
+version = "0.1.0"
+dependencies = [
+ "aqua-liquidity-pool-validation-errors",
+ "aqua-utils",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua_rewards"
+version = "0.1.0"
+dependencies = [
+ "aqua-utils",
+ "soroban-fixed-point-math",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua_soroban-liquidity-pool-provider-swap-fee-contract"
+version = "0.1.0"
+dependencies = [
+ "aqua-utils",
+ "paste",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua_token_share"
+version = "0.1.0"
+dependencies = [
+ "aqua-utils",
  "soroban-sdk",
 ]
 
@@ -265,6 +424,13 @@ version = "0.1.0"
 dependencies = [
  "hoops-adapter-interface",
  "hoops-common",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "comet-factory"
+version = "1.0.0"
+dependencies = [
  "soroban-sdk",
 ]
 
@@ -565,13 +731,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca81e6b4777c89fd810c25a4be2b1bd93ea034fbe58e6a75216a34c6b82c539b"
 
 [[package]]
-name = "factory"
-version = "1.0.0"
-dependencies = [
- "soroban-sdk",
-]
-
-[[package]]
 name = "ff"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -772,13 +931,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e04e2fd2b8188ea827b32ef11de88377086d690286ab35747ef7f9bf3ccb590"
 
 [[package]]
-name = "integration-tests"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
-]
-
-[[package]]
 name = "itertools"
 version = "0.10.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -835,31 +987,6 @@ name = "libm"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
-
-[[package]]
-name = "liquidity-pool-events"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
-]
-
-[[package]]
-name = "liquidity-pool-validation-errors"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
-]
-
-[[package]]
-name = "locker-feed"
-version = "0.1.0"
-dependencies = [
- "access_control",
- "paste",
- "soroban-sdk",
- "upgrade",
- "utils",
-]
 
 [[package]]
 name = "log"
@@ -1133,15 +1260,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rewards"
-version = "0.1.0"
-dependencies = [
- "soroban-fixed-point-math",
- "soroban-sdk",
- "utils",
-]
-
-[[package]]
 name = "rfc6979"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1405,15 +1523,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "soroban-fees-collector-contract"
-version = "0.1.0"
-dependencies = [
- "access_control",
- "soroban-sdk",
- "upgrade",
-]
-
-[[package]]
 name = "soroban-fixed-point-math"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1434,91 +1543,6 @@ dependencies = [
  "soroban-env-common",
  "soroban-env-host",
  "thiserror",
-]
-
-[[package]]
-name = "soroban-liquidity-pool-contract"
-version = "0.1.0"
-dependencies = [
- "access_control",
- "liquidity-pool-events",
- "liquidity-pool-validation-errors",
- "paste",
- "rewards",
- "soroban-fixed-point-math",
- "soroban-sdk",
- "token_share",
- "upgrade",
- "utils",
-]
-
-[[package]]
-name = "soroban-liquidity-pool-liquidity-calculator-contract"
-version = "0.1.0"
-dependencies = [
- "access_control",
- "soroban-fixed-point-math",
- "soroban-sdk",
- "upgrade",
-]
-
-[[package]]
-name = "soroban-liquidity-pool-plane-contract"
-version = "0.1.0"
-dependencies = [
- "access_control",
- "soroban-sdk",
- "upgrade",
-]
-
-[[package]]
-name = "soroban-liquidity-pool-provider-swap-fee-contract"
-version = "0.1.0"
-dependencies = [
- "paste",
- "soroban-sdk",
- "utils",
-]
-
-[[package]]
-name = "soroban-liquidity-pool-provider-swap-fee-factory-contract"
-version = "0.1.0"
-dependencies = [
- "access_control",
- "paste",
- "soroban-sdk",
- "upgrade",
- "utils",
-]
-
-[[package]]
-name = "soroban-liquidity-pool-router-contract"
-version = "0.1.0"
-dependencies = [
- "access_control",
- "liquidity-pool-validation-errors",
- "paste",
- "rewards",
- "soroban-sdk",
- "token_share",
- "upgrade",
- "utils",
-]
-
-[[package]]
-name = "soroban-liquidity-pool-stableswap-contract"
-version = "0.1.0"
-dependencies = [
- "access_control",
- "liquidity-pool-events",
- "liquidity-pool-validation-errors",
- "paste",
- "rewards",
- "soroban-fixed-point-math",
- "soroban-sdk",
- "token_share",
- "upgrade",
- "utils",
 ]
 
 [[package]]
@@ -1603,11 +1627,11 @@ dependencies = [
 name = "soroban-token-contract-aqua"
 version = "0.1.0"
 dependencies = [
- "access_control",
+ "aqua-upgrade",
+ "aqua-utils",
+ "aqua_access_control",
  "soroban-sdk",
  "soroban-token-sdk",
- "upgrade",
- "utils",
 ]
 
 [[package]]
@@ -1862,14 +1886,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "token_share"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
- "utils",
-]
-
-[[package]]
 name = "typenum"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1880,22 +1896,6 @@ name = "unicode-ident"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5f39404a5da50712a4c1eecf25e90dd62b613502b7e925fd4e4d19b5c96512"
-
-[[package]]
-name = "upgrade"
-version = "0.1.0"
-dependencies = [
- "access_control",
- "soroban-sdk",
- "utils",
-]
-
-[[package]]
-name = "utils"
-version = "0.1.0"
-dependencies = [
- "soroban-sdk",
-]
 
 [[package]]
 name = "version_check"

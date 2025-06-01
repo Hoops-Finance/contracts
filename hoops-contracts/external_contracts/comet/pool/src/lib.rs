@@ -6,7 +6,7 @@ pub mod c_num;
 pub mod c_pool;
 
 #[cfg(test)]
-mod tests;
+mod comet_pool_tests;
 
 #[cfg(test)]
 extern crate std;

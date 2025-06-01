@@ -4,7 +4,7 @@ use soroban_sdk::token::{
     StellarAssetClient as SorobanTokenAdminClient, TokenClient as SorobanTokenClient,
 };
 use soroban_sdk::{contracttype, panic_with_error, Address, Env};
-use utils::bump::bump_instance;
+use aqua_utils::bump::bump_instance;
 
 #[derive(Clone)]
 #[contracttype]
@@ -15,11 +15,11 @@ enum DataKey {
 
 pub mod token {
     soroban_sdk::contractimport!(
-        file = "../../../target/wasm32v1-none/release/soroban_token_contract_aqua.wasm"
+        file = "../../../bytecodes/soroban_token_contract_aqua.wasm"
     );
 }
 pub use token::{self as token_contract, Client};
-use utils::storage_errors::StorageError;
+use aqua_utils::storage_errors::StorageError;
 
 pub fn get_token_share(e: &Env) -> Address {
     bump_instance(e);

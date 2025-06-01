@@ -10,8 +10,8 @@ mod pool_utils;
 mod rewards;
 mod router_interface;
 mod storage;
-mod test;
-mod test_permissions;
+mod aqua_lp_router_tests;
+mod aqua_lp_router_permissions_tests;
 mod testutils;
 
 pub use contract::{LiquidityPoolRouter, LiquidityPoolRouterClient};

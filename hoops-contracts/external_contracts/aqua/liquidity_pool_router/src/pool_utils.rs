@@ -6,10 +6,10 @@ use crate::storage::{
     add_pool, add_tokens_set, get_constant_product_pool_hash, get_pool_next_counter,
     get_pool_plane, get_pools_plain, get_stableswap_pool_hash, get_token_hash, LiquidityPoolType,
 };
-use access_control::access::AccessControl;
-use access_control::management::{MultipleAddressesManagementTrait, SingleAddressManagementTrait};
-use access_control::role::Role;
-use rewards::storage::{BoostFeedStorageTrait, BoostTokenStorageTrait, RewardTokenStorageTrait};
+use aqua_access_control::access::AccessControl;
+use aqua_access_control::management::{MultipleAddressesManagementTrait, SingleAddressManagementTrait};
+use aqua_access_control::role::Role;
+use aqua_rewards::storage::{BoostFeedStorageTrait, BoostTokenStorageTrait, RewardTokenStorageTrait};
 use soroban_sdk::token::Client as SorobanTokenClient;
 use soroban_sdk::{
     panic_with_error, symbol_short, xdr::ToXdr, Address, Bytes, BytesN, Env, IntoVal, Map, Symbol,

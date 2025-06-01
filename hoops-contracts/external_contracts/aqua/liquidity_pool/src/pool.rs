@@ -1,6 +1,6 @@
 use crate::constants::FEE_MULTIPLIER;
 use crate::storage::get_fee_fraction;
-use liquidity_pool_validation_errors::LiquidityPoolValidationError;
+use aqua_liquidity_pool_validation_errors::LiquidityPoolValidationError;
 use soroban_fixed_point_math::SorobanFixedPoint;
 use soroban_sdk::{panic_with_error, Env};
 

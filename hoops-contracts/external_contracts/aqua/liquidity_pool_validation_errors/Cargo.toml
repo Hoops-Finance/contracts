@@ -1,5 +1,5 @@
 [package]
-name = "liquidity-pool-validation-errors"
+name = "aqua-liquidity-pool-validation-errors"
 version.workspace = true
 edition = "2021"
 publish = false

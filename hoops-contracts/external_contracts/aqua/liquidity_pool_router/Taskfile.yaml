@@ -14,9 +14,9 @@ tasks:
       - task -d ../liquidity_pool build || exit 1
       - task -d ../liquidity_pool_stableswap build || exit 1
       - task -d ../liquidity_pool_liquidity_calculator build || exit 1
-      - soroban contract build --package soroban-liquidity-pool-router-contract
-      - soroban contract optimize --wasm ../../target/wasm32v1-none/release/aqua_liquidity_pool_router_contract.wasm --wasm-out ../../target/wasm32v1-none/release/aqua_liquidity_pool_router_contract.wasm
-      - le -l ../../target/wasm32v1-none/release/*.wasm
+      - soroban contract build --package aqua-soroban-liquidity-pool-router-contract
+      - soroban contract optimize --wasm ../../bytecodes/aqua_liquidity_pool_router_contract.wasm --wasm-out ../../bytecodes/aqua_liquidity_pool_router_contract.wasm
+      - le -l ../../bytecodes/*.wasm
 
   test:
     deps:

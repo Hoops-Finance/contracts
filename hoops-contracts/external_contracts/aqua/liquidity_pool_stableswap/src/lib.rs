@@ -4,7 +4,7 @@ mod contract;
 mod pool_constants;
 mod pool_interface;
 mod storage;
-mod test;
+mod aqua_lp_stable_tests;
 mod token;
 
 pub mod errors;
@@ -13,7 +13,7 @@ mod normalize;
 mod plane;
 mod plane_interface;
 mod rewards;
-mod test_permissions;
+mod aqua_lp_stable_permissions_tests;
 mod testutils;
 
 pub use contract::*;

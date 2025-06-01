@@ -3,8 +3,8 @@
 mod contract;
 mod interface;
 mod storage;
-mod test;
-mod test_permissions;
+mod aqua_fees_collector_tests;
+mod aqua_fees_collector_permissions_tests;
 mod testutils;
 
 pub use crate::contract::{FeesCollector, FeesCollectorClient};

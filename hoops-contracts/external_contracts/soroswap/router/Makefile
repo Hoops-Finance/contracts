@@ -10,8 +10,8 @@ build:
 	$(MAKE) -C ../pair || break;
 	$(MAKE) -C ../factory || break;
 	cargo build --target wasm32v1-none --release
-	soroban contract optimize --wasm target/wasm32v1-none/release/soroswap_router.wasm
-	@ls -l target/wasm32v1-none/release/*.wasm
+	soroban contract optimize --wasm bytecodes/soroswap_router.wasm
+	@ls -l bytecodes/*.wasm
 fmt:
 	cargo fmt --all --check
 

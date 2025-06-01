@@ -23,27 +23,27 @@ use crate::storage::{
     set_reward_tokens, set_reward_tokens_detailed, set_rewards_config, set_stableswap_pool_hash,
     set_token_hash, GlobalRewardsConfig, LiquidityPoolRewardInfo,
 };
-use access_control::access::{AccessControl, AccessControlTrait};
-use access_control::emergency::{get_emergency_mode, set_emergency_mode};
-use access_control::errors::AccessControlError;
-use access_control::events::Events as AccessControlEvents;
-use access_control::interface::TransferableContract;
-use access_control::management::{MultipleAddressesManagementTrait, SingleAddressManagementTrait};
-use access_control::role::Role;
-use access_control::role::SymbolRepresentation;
-use access_control::transfer::TransferOwnershipTrait;
-use access_control::utils::{require_operations_admin_or_owner, require_rewards_admin_or_owner};
-use rewards::storage::{BoostFeedStorageTrait, BoostTokenStorageTrait, RewardTokenStorageTrait};
+use aqua_access_control::access::{AccessControl, AccessControlTrait};
+use aqua_access_control::emergency::{get_emergency_mode, set_emergency_mode};
+use aqua_access_control::errors::AccessControlError;
+use aqua_access_control::events::Events as AccessControlEvents;
+use aqua_access_control::interface::TransferableContract;
+use aqua_access_control::management::{MultipleAddressesManagementTrait, SingleAddressManagementTrait};
+use aqua_access_control::role::Role;
+use aqua_access_control::role::SymbolRepresentation;
+use aqua_access_control::transfer::TransferOwnershipTrait;
+use aqua_access_control::utils::{require_operations_admin_or_owner, require_rewards_admin_or_owner};
+use aqua_rewards::storage::{BoostFeedStorageTrait, BoostTokenStorageTrait, RewardTokenStorageTrait};
 use soroban_sdk::auth::{ContractContext, InvokerContractAuthEntry, SubContractInvocation};
 use soroban_sdk::token::Client as SorobanTokenClient;
 use soroban_sdk::{
     contract, contractimpl, panic_with_error, symbol_short, vec, Address, BytesN, Env, IntoVal,
     Map, Symbol, Val, Vec, U256,
 };
-use upgrade::events::Events as UpgradeEvents;
-use upgrade::interface::UpgradeableContract;
-use upgrade::{apply_upgrade, commit_upgrade, revert_upgrade};
-use utils::storage_errors::StorageError;
+use aqua_upgrade::events::Events as UpgradeEvents;
+use aqua_upgrade::interface::UpgradeableContract;
+use aqua_upgrade::{apply_upgrade, commit_upgrade, revert_upgrade};
+use aqua_utils::storage_errors::StorageError;
 
 #[contract]
 pub struct LiquidityPoolRouter;

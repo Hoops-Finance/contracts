@@ -11,9 +11,9 @@ use crate::errors::Error;
 use crate::storage::{
     get_future_wasm, get_upgrade_deadline, put_future_wasm, put_upgrade_deadline,
 };
-use access_control::emergency::get_emergency_mode;
+use aqua_access_control::emergency::get_emergency_mode;
 use soroban_sdk::{panic_with_error, BytesN, Env};
-use utils::storage_errors::StorageError;
+use aqua_utils::storage_errors::StorageError;
 
 pub fn commit_upgrade(e: &Env, new_wasm_hash: &BytesN<32>) {
     if get_upgrade_deadline(e) != 0 {

@@ -9,8 +9,8 @@ mod pool;
 mod pool_interface;
 mod rewards;
 mod storage;
-mod test;
-mod test_permissions;
+mod aqua_lp_constant_tests;
+mod aqua_lp_constant_permission_tests;
 mod testutils;
 pub mod token;
 

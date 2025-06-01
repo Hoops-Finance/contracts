@@ -1,7 +1,7 @@
 use crate::balance::read_balance;
-use access_control::access::AccessControl;
-use access_control::management::SingleAddressManagementTrait;
-use access_control::role::Role;
+use aqua_access_control::access::AccessControl;
+use aqua_access_control::management::SingleAddressManagementTrait;
+use aqua_access_control::role::Role;
 use soroban_sdk::{Address, Env, IntoVal, Symbol, Vec};
 
 pub fn checkpoint_user_rewards(e: &Env, user: Address) {

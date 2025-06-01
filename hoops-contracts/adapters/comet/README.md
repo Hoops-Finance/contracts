@@ -48,7 +48,7 @@ Implemented `AdapterTrait` functions:
 
 ## Protocol Interaction
 
-*   The adapter interacts with a Comet pool contract, whose WASM is imported via `contractimport!` from `../../target/wasm32v1-none/release/comet-pool.wasm`.
+*   The adapter interacts with a Comet pool contract, whose WASM is imported via `contractimport!` from `../../bytecodes/comet-pool.wasm`.
 *   It uses `CometPoolClient` for these interactions.
 
 ## Storage

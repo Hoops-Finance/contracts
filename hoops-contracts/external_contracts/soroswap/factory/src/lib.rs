@@ -2,7 +2,7 @@
 
 mod event;
 mod pair;
-mod test;
+mod soroswap_factory_tests;
 mod storage;
 
 use soroban_sdk::{

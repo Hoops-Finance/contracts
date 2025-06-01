@@ -12,9 +12,9 @@ tasks:
   build:
     cmds:
       - soroban contract build --package locker-feed
-      - soroban contract optimize --wasm ../../target/wasm32v1-none/release/locker_feed.wasm --wasm-out ../../target/wasm32v1-none/release/aqua_locker_feed_contract.wasm
-      - rm ../target/wasm32v1-none/release/locker_feed.wasm
-      - le -l ../../target/wasm32v1-none/release/*.wasm
+      - soroban contract optimize --wasm ../../bytecodes/locker_feed.wasm --wasm-out ../../bytecodes/aqua_locker_feed_contract.wasm
+      - rm ../bytecodes/locker_feed.wasm
+      - le -l ../../bytecodes/*.wasm
 
   test:
     deps:

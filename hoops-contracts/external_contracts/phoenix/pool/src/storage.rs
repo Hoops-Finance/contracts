@@ -504,34 +504,34 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_get_admin_failure() {
+    fn test_pho_pool_test_get_admin_failure() {
         let env = Env::default();
         let _ = utils::get_admin_old(&env);
     }
 
     #[test]
     #[should_panic]
-    fn test_get_total_shares_failure() {
+    fn test_pho_pool_test_get_total_shares_failure() {
         let env = Env::default();
         let _ = utils::get_total_shares(&env);
     }
 
     #[test]
     #[should_panic]
-    fn test_get_pool_balance_a_failure() {
+    fn test_pho_pool_test_get_pool_balance_a_failure() {
         let env = Env::default();
         let _ = utils::get_pool_balance_a(&env);
     }
 
     #[test]
     #[should_panic]
-    fn test_get_pool_balance_b_failure() {
+    fn test_pho_pool_test_get_pool_balance_b_failure() {
         let env = Env::default();
         let _ = utils::get_pool_balance_b(&env);
     }
 
     #[test]
-    fn test_get_deposit_amounts_pool_balances_zero() {
+    fn test_pho_pool_test_get_deposit_amounts_pool_balances_zero() {
         let env = Env::default();
         let result =
             utils::get_deposit_amounts(&env, 100, Some(50), 200, Some(50), 0, 0, Decimal::bps(100));
@@ -540,14 +540,14 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Error(Contract, #311)")]
-    fn test_get_deposit_amounts_amount_b_less_than_desired() {
+    fn test_pho_pool_test_get_deposit_amounts_amount_b_less_than_desired() {
         let env = Env::default();
         utils::get_deposit_amounts(&env, 1000, None, 1005, Some(1001), 1, 1, Decimal::bps(100));
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #310)")]
-    fn test_get_deposit_amounts_amount_b_exceeds_desired_amount() {
+    fn test_pho_pool_test_get_deposit_amounts_amount_b_exceeds_desired_amount() {
         let env = Env::default();
         utils::get_deposit_amounts(
             &env,
@@ -563,13 +563,13 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Error(Contract, #311)")]
-    fn test_get_deposit_amounts_amount_b_less_than_min_b() {
+    fn test_pho_pool_test_get_deposit_amounts_amount_b_less_than_min_b() {
         let env = Env::default();
         utils::get_deposit_amounts(&env, 1000, None, 1005, Some(1001), 1, 1, Decimal::bps(100));
     }
 
     #[test]
-    fn test_get_deposit_amounts_amount_a_less_than_desired_and_greater_than_min_a() {
+    fn test_pho_pool_test_get_deposit_amounts_amount_a_less_than_desired_and_greater_than_min_a() {
         let env = Env::default();
         let result = utils::get_deposit_amounts(
             &env,
@@ -586,14 +586,14 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Error(Contract, #306)")]
-    fn test_get_deposit_amounts_amount_a_greater_than_desired_and_less_than_min_a() {
+    fn test_pho_pool_test_get_deposit_amounts_amount_a_greater_than_desired_and_less_than_min_a() {
         let env = Env::default();
         utils::get_deposit_amounts(&env, 50, Some(100), 200, None, 100, 200, Decimal::bps(100));
     }
 
     #[test]
     #[should_panic(expected = "Error(Contract, #307)")]
-    fn test_get_deposit_amounts_amount_b_greater_than_desired_and_less_than_min_b() {
+    fn test_pho_pool_test_get_deposit_amounts_amount_b_greater_than_desired_and_less_than_min_b() {
         let env = Env::default();
         utils::get_deposit_amounts(
             &env,
@@ -609,13 +609,13 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Error(Contract, #306)")]
-    fn test_get_deposit_amounts_amount_a_less_than_min_a() {
+    fn test_pho_pool_test_get_deposit_amounts_amount_a_less_than_min_a() {
         let env = Env::default();
         utils::get_deposit_amounts(&env, 100, Some(200), 200, None, 100, 200, Decimal::bps(100));
     }
 
     #[test]
-    fn test_get_deposit_amounts_ratio() {
+    fn test_pho_pool_test_get_deposit_amounts_ratio() {
         let env = Env::default();
         let (amount_a, amount_b) = utils::get_deposit_amounts(
             &env,
@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Error(Contract, #308)")]
-    fn test_get_deposit_amounts_exceeds_desired() {
+    fn test_pho_pool_test_get_deposit_amounts_exceeds_desired() {
         let env = Env::default();
         // The calculated deposit for asset A exceeds the desired amount and is not within 1% tolerance
         utils::get_deposit_amounts(&env, 1000, None, 2000, None, 10000, 5000, Decimal::bps(100));
@@ -642,7 +642,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Error(Contract, #309)")]
-    fn test_get_deposit_amounts_below_min_a() {
+    fn test_pho_pool_test_pho_pool_test_get_deposit_amounts_below_min_a() {
         let env = Env::default();
         // The calculated deposit for asset A is below the minimum requirement
         utils::get_deposit_amounts(
@@ -659,7 +659,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Error(Contract, #311)")]
-    fn test_get_deposit_amounts_below_min_b() {
+    fn test_pho_pool_test_get_deposit_amounts_below_min_b() {
         let env = Env::default();
         // The calculated deposit for asset B is below the minimum requirement
         utils::get_deposit_amounts(
@@ -675,7 +675,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_deposit_amounts_accept_a_within_1_percent() {
+    fn test_pho_pool_test_get_deposit_amounts_accept_a_within_1_percent() {
         let env = Env::default();
         // Set up the inputs so that amount_a = (1010 * 1000 / 1000) = 1010, which is > desired_a (1000),
         // but the ratio is exactly 1.01, which is within the 1% tolerance
@@ -685,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_deposit_amounts_accept_b_within_1_percent() {
+    fn test_pho_pool_test_get_deposit_amounts_accept_b_within_1_percent() {
         let env = Env::default();
         let result =
             utils::get_deposit_amounts(&env, 1010, None, 1000, None, 1000, 1000, Decimal::bps(100));
@@ -699,7 +699,7 @@ mod tests {
     #[test_case(-1, -1 ; "when both desired are negative")]
     #[test_case(0, 0 ; "when both desired are zero")]
     #[should_panic(expected = "Error(Contract, #313)")]
-    fn test_get_deposit_amounts_desired_less_than_or_equal_zero(desired_a: i128, desired_b: i128) {
+    fn test_pho_pool_test_get_deposit_amounts_desired_less_than_or_equal_zero(desired_a: i128, desired_b: i128) {
         let env = Env::default();
         utils::get_deposit_amounts(
             &env,
@@ -717,7 +717,7 @@ mod tests {
     #[test_case(10, -1 ; "when min_b is negative")]
     #[test_case(-1, -1 ; "when both minimums are negative")]
     #[should_panic(expected = "Error(Contract, #314)")]
-    fn test_get_deposit_amounts_min_amounts_less_than_zero(min_a: i128, min_b: i128) {
+    fn test_pho_pool_test_get_deposit_amounts_min_amounts_less_than_zero(min_a: i128, min_b: i128) {
         let env = Env::default();
         utils::get_deposit_amounts(
             &env,
@@ -732,7 +732,7 @@ mod tests {
     }
 
     #[test]
-    fn test_max_allowed_slippage() {
+    fn test_pho_pool_test_max_allowed_slippage() {
         let env = Env::default();
         let config = Config {
             max_allowed_slippage_bps: 100,

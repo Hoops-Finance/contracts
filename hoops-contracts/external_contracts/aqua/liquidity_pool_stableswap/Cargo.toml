@@ -1,5 +1,5 @@
 [package]
-name = "soroban-liquidity-pool-stableswap-contract"
+name = "aqua-soroban-liquidity-pool-stableswap-contract"
 version.workspace = true
 edition = "2021"
 publish = false
@@ -9,16 +9,16 @@ crate-type = ["cdylib"]
 
 [dependencies]
 soroban-sdk = { workspace = true }
-access_control = { path = "../access_control" }
-rewards = { path = "../rewards" }
-token_share = { path = "../token_share" }
-utils = { path = "../utils" }
+aqua_access_control = { path = "../access_control" }
+aqua_rewards = { path = "../rewards" }
+aqua_token_share = { path = "../token_share" }
+aqua-utils = { path = "../utils" }
 paste = { workspace = true }
-liquidity-pool-validation-errors = { path = "../liquidity_pool_validation_errors" }
-liquidity-pool-events = { path = "../liquidity_pool_events" }
+aqua-liquidity-pool-validation-errors = { path = "../liquidity_pool_validation_errors" }
+aqua-liquidity-pool-events = { path = "../liquidity_pool_events" }
 soroban-fixed-point-math = { workspace = true }
-upgrade = { path = "../upgrade" }
+aqua-upgrade = { path = "../upgrade" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-utils = { path = "../utils", features = ["testutils"] }
+aqua-utils = { path = "../utils", features = ["testutils"] }

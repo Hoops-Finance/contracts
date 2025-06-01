@@ -9,7 +9,7 @@ mod storage;
 mod balances;
 mod event;
 mod error; 
-mod test;
+mod soroswap_pair_tests;
 mod math;
 mod strings;
 
@@ -17,7 +17,7 @@ mod strings;
 // TODO: Simplify this and use a any_token_interface
 pub mod any_token {
     //use soroban_sdk::token::Client;
-    soroban_sdk::contractimport!(file = "../../../target/wasm32v1-none/release/soroban_token_contract.wasm");
+    soroban_sdk::contractimport!(file = "../../../bytecodes/soroban_token_contract.wasm");
     pub type TokenClient<'a> = Client<'a>;
 }
 

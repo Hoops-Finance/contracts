@@ -1,5 +1,5 @@
 [package]
-name = "soroban-liquidity-pool-plane-contract"
+name = "aqua-soroban-liquidity-pool-plane-contract"
 version.workspace = true
 edition = "2021"
 publish = false
@@ -9,8 +9,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 soroban-sdk = { workspace = true }
-access_control = { path = "../access_control" }
-upgrade = { path = "../upgrade" }
+aqua_access_control = { path = "../access_control" }
+aqua-upgrade = { path = "../upgrade" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }

@@ -1,6 +1,6 @@
 use crate::errors::TokenError;
 use soroban_sdk::{contracttype, panic_with_error, Address, Env};
-use utils::bump::bump_persistent;
+use aqua_utils::bump::bump_persistent;
 
 #[derive(Clone)]
 #[contracttype]

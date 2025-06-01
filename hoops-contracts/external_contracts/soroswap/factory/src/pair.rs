@@ -3,7 +3,7 @@
 use soroban_sdk::{contracttype, contracterror, xdr::ToXdr, Address, Bytes, BytesN, Env};
 
 soroban_sdk::contractimport!(
-    file = "../../../target/wasm32v1-none/release/soroswap_pair.wasm"
+    file = "../../../bytecodes/soroswap_pair.wasm"
 );
 
 #[contracterror]

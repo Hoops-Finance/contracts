@@ -1,5 +1,5 @@
 [package]
-name = "soroban-liquidity-pool-liquidity-calculator-contract"
+name = "aqua-soroban-liquidity-pool-liquidity-calculator-contract"
 version.workspace = true
 edition = "2021"
 publish = false
@@ -8,10 +8,10 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-access_control = { path = "../access_control" }
+aqua_access_control = { path = "../access_control" }
 soroban-sdk = { workspace = true }
 soroban-fixed-point-math = { workspace = true }
-upgrade = { path = "../upgrade" }
+aqua-upgrade = { path = "../upgrade" }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }

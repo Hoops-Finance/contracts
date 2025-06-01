@@ -11,7 +11,7 @@ pub mod storage;
 
 pub use manager::Manager;
 pub use storage::Storage;
-pub use utils;
+pub use aqua_utils;
 
 #[derive(Clone)]
 pub struct RewardsConfig {

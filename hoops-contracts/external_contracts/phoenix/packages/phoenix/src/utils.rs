@@ -111,7 +111,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_validate_int_parameters() {
+    fn test_pho_packages_phoenix_test_validate_int_parameters() {
         // The macro should not panic for valid parameters.
         validate_int_parameters!(1, 2, 3);
         validate_int_parameters!(1, 1, 1);
@@ -122,36 +122,36 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn should_panic_when_value_less_than_zero() {
+    fn test_pho_packages_phoenix_should_panic_when_value_less_than_zero() {
         validate_int_parameters!(1, -2, 3);
     }
 
     #[test]
     #[should_panic]
-    fn should_panic_when_first_value_equal_zero() {
+    fn test_pho_packages_phoenix_should_panic_when_first_value_equal_zero() {
         validate_int_parameters!(0, 1, 3);
     }
 
     #[test]
     #[should_panic]
-    fn should_panic_when_last_value_equal_zero() {
+    fn test_pho_packages_phoenix_should_panic_when_last_value_equal_zero() {
         validate_int_parameters!(1, 1, 0);
     }
 
     #[test]
     #[should_panic]
-    fn should_panic_when_some_equals_zero() {
+    fn test_pho_packages_phoenix_should_panic_when_some_equals_zero() {
         validate_int_parameters!(Some(0i128), None::<i128>);
     }
 
     #[test]
     #[should_panic]
-    fn should_panic_when_some_less_than_zero() {
+    fn test_pho_packages_phoenix_should_panic_when_some_less_than_zero() {
         validate_int_parameters!(Some(-1i128), None::<i128>);
     }
 
     #[test]
-    fn test_assert_approx_ratio_close_values() {
+    fn test_pho_packages_phoenix_test_assert_approx_ratio_close_values() {
         let a = Decimal::from_ratio(100, 101);
         let b = Decimal::from_ratio(100, 100);
         let tolerance = Decimal::percent(3);
@@ -159,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assert_approx_ratio_equal_values() {
+    fn test_pho_packages_phoenix_test_assert_approx_ratio_equal_values() {
         let a = Decimal::from_ratio(100, 100);
         let b = Decimal::from_ratio(100, 100);
         let tolerance = Decimal::percent(3);
@@ -167,7 +167,7 @@ mod tests {
     }
 
     #[test]
-    fn test_assert_approx_ratio_outside_tolerance() {
+    fn test_pho_packages_phoenix_test_assert_approx_ratio_outside_tolerance() {
         let a = Decimal::from_ratio(100, 104);
         let b = Decimal::from_ratio(100, 100);
         let tolerance = Decimal::percent(3);
@@ -176,23 +176,23 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "The value -1 is out of range. Must be between 0 and 10000 bps.")]
-    fn validate_bps_below_min() {
+    fn test_pho_packages_phoenix_validate_bps_below_min() {
         validate_bps!(-1, 300, 5_000, 8_534);
     }
 
     #[test]
     #[should_panic(expected = "The value 10001 is out of range. Must be between 0 and 10000 bps.")]
-    fn validate_bps_above_max() {
+    fn test_pho_packages_phoenix_validate_bps_above_max() {
         validate_bps!(100, 10_001, 31_3134, 348);
     }
 
     #[test]
-    fn bps_valid_range() {
+    fn test_pho_packages_phoenix_bps_valid_range() {
         validate_bps!(0, 5_000, 7_500, 10_000);
     }
 
     #[test]
-    fn should_successfully_convert_u128_to_i128() {
+    fn test_pho_packages_phoenix_should_successfully_convert_u128_to_i128() {
         let val = 10u128;
         let result: i128 = convert_u128_to_i128(val);
         assert_eq!(result, 10i128);
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Cannot convert u128 to i128")]
-    fn should_panic_when_value_bigger_than_i128() {
+    fn test_pho_packages_phoenix_should_panic_when_value_bigger_than_i128() {
         let val = i128::MAX as u128 + 1u128;
         convert_u128_to_i128(val);
     }

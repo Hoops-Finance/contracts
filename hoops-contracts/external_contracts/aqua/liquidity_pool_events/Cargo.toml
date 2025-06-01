@@ -1,5 +1,5 @@
 [package]
-name = "liquidity-pool-events"
+name = "aqua-liquidity-pool-events"
 version.workspace = true
 edition = "2021"
 publish = false

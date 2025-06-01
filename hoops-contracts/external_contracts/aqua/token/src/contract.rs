@@ -5,18 +5,18 @@ use crate::errors::TokenError;
 use crate::interface::UpgradeableContract;
 use crate::metadata::{read_decimal, read_name, read_symbol, write_metadata};
 use crate::pool::{checkpoint_user_rewards, checkpoint_user_working_balance};
-use access_control::access::{AccessControl, AccessControlTrait};
-use access_control::errors::AccessControlError;
-use access_control::events::Events as AccessControlEvents;
-use access_control::interface::TransferableContract;
-use access_control::management::SingleAddressManagementTrait;
-use access_control::role::{Role, SymbolRepresentation};
-use access_control::transfer::TransferOwnershipTrait;
+use aqua_access_control::access::{AccessControl, AccessControlTrait};
+use aqua_access_control::errors::AccessControlError;
+use aqua_access_control::events::Events as AccessControlEvents;
+use aqua_access_control::interface::TransferableContract;
+use aqua_access_control::management::SingleAddressManagementTrait;
+use aqua_access_control::role::{Role, SymbolRepresentation};
+use aqua_access_control::transfer::TransferOwnershipTrait;
 use soroban_sdk::token::{self, Interface as _};
 use soroban_sdk::{contract, contractimpl, panic_with_error, Address, BytesN, Env, String, Symbol};
 use soroban_token_sdk::metadata::TokenMetadata;
 use soroban_token_sdk::TokenUtils;
-use utils::bump::bump_instance;
+use aqua_utils::bump::bump_instance;
 
 fn check_nonnegative_amount(e: &Env, amount: i128) {
     if amount < 0 {

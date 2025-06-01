@@ -47,7 +47,7 @@ Implemented `AdapterTrait` functions:
 
 ## Protocol Interaction
 
-*   The adapter interacts with the Aqua router contract whose WASM is imported via `contractimport!` from `../../target/wasm32v1-none/release/aqua_liquidity_pool_router_contract.wasm`.
+*   The adapter interacts with the Aqua router contract whose WASM is imported via `contractimport!` from `../../bytecodes/aqua_liquidity_pool_router_contract.wasm`.
 *   It uses `AquaRouterClient` for these interactions.
 
 ## Storage

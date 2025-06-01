@@ -1,20 +1,20 @@
 use crate::errors::FeedError;
 use crate::interface::AdminInterfaceTrait;
-use access_control::access::{AccessControl, AccessControlTrait};
-use access_control::emergency::{get_emergency_mode, set_emergency_mode};
-use access_control::errors::AccessControlError;
-use access_control::events::Events as AccessControlEvents;
-use access_control::interface::TransferableContract;
-use access_control::management::SingleAddressManagementTrait;
-use access_control::role::{Role, SymbolRepresentation};
-use access_control::transfer::TransferOwnershipTrait;
+use aqua_access_control::access::{AccessControl, AccessControlTrait};
+use aqua_access_control::emergency::{get_emergency_mode, set_emergency_mode};
+use aqua_access_control::errors::AccessControlError;
+use aqua_access_control::events::Events as AccessControlEvents;
+use aqua_access_control::interface::TransferableContract;
+use aqua_access_control::management::SingleAddressManagementTrait;
+use aqua_access_control::role::{Role, SymbolRepresentation};
+use aqua_access_control::transfer::TransferOwnershipTrait;
 use soroban_sdk::{
     contract, contractimpl, contracttype, panic_with_error, Address, BytesN, Env, Map, Symbol, Vec,
 };
-use upgrade::events::Events as UpgradeEvents;
-use upgrade::interface::UpgradeableContract;
-use upgrade::{apply_upgrade, commit_upgrade, revert_upgrade};
-use utils::bump::bump_instance;
+use aqua_upgrade::events::Events as UpgradeEvents;
+use aqua_upgrade::interface::UpgradeableContract;
+use aqua_upgrade::{apply_upgrade, commit_upgrade, revert_upgrade};
+use aqua_utils::bump::bump_instance;
 
 #[derive(Clone)]
 #[contracttype]

@@ -2,20 +2,20 @@ use crate::interface::Calculator;
 use crate::plane::{parse_stableswap_data, parse_standard_data, PoolPlaneClient};
 use crate::storage::{get_plane, set_plane};
 use crate::{stableswap_pool, standard_pool};
-use access_control::access::{AccessControl, AccessControlTrait};
-use access_control::emergency::{get_emergency_mode, set_emergency_mode};
-use access_control::errors::AccessControlError;
-use access_control::events::Events as AccessControlEvents;
-use access_control::interface::TransferableContract;
-use access_control::management::SingleAddressManagementTrait;
-use access_control::role::{Role, SymbolRepresentation};
-use access_control::transfer::TransferOwnershipTrait;
+use aqua_access_control::access::{AccessControl, AccessControlTrait};
+use aqua_access_control::emergency::{get_emergency_mode, set_emergency_mode};
+use aqua_access_control::errors::AccessControlError;
+use aqua_access_control::events::Events as AccessControlEvents;
+use aqua_access_control::interface::TransferableContract;
+use aqua_access_control::management::SingleAddressManagementTrait;
+use aqua_access_control::role::{Role, SymbolRepresentation};
+use aqua_access_control::transfer::TransferOwnershipTrait;
 use soroban_sdk::{
     contract, contractimpl, panic_with_error, symbol_short, Address, BytesN, Env, Symbol, Vec, U256,
 };
-use upgrade::events::Events as UpgradeEvents;
-use upgrade::interface::UpgradeableContract;
-use upgrade::{apply_upgrade, commit_upgrade, revert_upgrade};
+use aqua_upgrade::events::Events as UpgradeEvents;
+use aqua_upgrade::interface::UpgradeableContract;
+use aqua_upgrade::{apply_upgrade, commit_upgrade, revert_upgrade};
 
 #[contract]
 pub struct LiquidityPoolLiquidityCalculator;

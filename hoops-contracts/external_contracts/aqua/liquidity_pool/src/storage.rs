@@ -1,8 +1,8 @@
 use paste::paste;
 use soroban_sdk::{contracttype, panic_with_error, Address, BytesN, Env};
-pub use utils::bump::bump_instance;
-use utils::storage_errors::StorageError;
-use utils::{
+pub use aqua_utils::bump::bump_instance;
+use aqua_utils::storage_errors::StorageError;
+use aqua_utils::{
     generate_instance_storage_getter_and_setter_with_default,
     generate_instance_storage_getter_with_default, generate_instance_storage_setter,
 };

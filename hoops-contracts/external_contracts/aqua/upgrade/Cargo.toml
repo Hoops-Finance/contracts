@@ -1,5 +1,5 @@
 [package]
-name = "upgrade"
+name = "aqua-upgrade"
 version.workspace = true
 edition = "2021"
 publish = false
@@ -10,5 +10,5 @@ doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
-access_control = { path = "../access_control" }
-utils = { path = "../utils" }
+aqua_access_control = { path = "../access_control" }
+aqua-utils = { path = "../utils" }

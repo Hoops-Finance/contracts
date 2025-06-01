@@ -1,17 +1,17 @@
 [package]
-name = "token_share"
+name = "aqua_token_share"
 version.workspace = true
 edition = "2021"
 publish = false
 
 [lib]
-crate-type = ["rlib"]
+crate-type = ["cdylib", "rlib"]
 doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
-utils = { workspace = true }
+aqua-utils = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-utils = { workspace = true, features = ["testutils"] }
+aqua-utils = { workspace = true, features = ["testutils"] }

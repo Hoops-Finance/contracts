@@ -9,8 +9,8 @@ mod plane;
 mod stableswap_pool;
 mod standard_pool;
 mod storage;
-mod test;
-mod test_permissions;
+mod aqua_lp_calc_tests;
+mod aqua_lp_calc_permissions_tests;
 mod testutils;
 
 pub use crate::contract::{
