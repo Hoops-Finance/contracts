@@ -7,6 +7,6 @@ edition = { workspace = true }
 crate-type = ["cdylib"]
 
 [dependencies]
-soroban-sdk              = { workspace = true }
+soroban-sdk              = { workspace = true, features = ["testutils"] }
 hoops-common             = { path = "../common" }
 hoops-adapter-interface  = { path = "../adapter-interface" }

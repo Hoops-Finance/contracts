@@ -1,7 +1,7 @@
 use soroban_sdk::{contractclient, Address, BytesN, Env, Vec};
 use crate::{RouterError, LpPlan};
 
-#[contractclient(name = "RouterClient")]
+//#[contractclient(name = "RouterClient")]
 pub trait RouterTrait {
     fn initialize(e: Env, admin_addr: Address) -> Result<(), RouterError>;
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), RouterError>;

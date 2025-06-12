@@ -12,7 +12,7 @@ pub enum AdapterError {
     ExternalFailure = 102,
 }
 
-
+pub mod types;
 pub struct Spec;
 
 /// Interface every AMM adapter MUST expose.

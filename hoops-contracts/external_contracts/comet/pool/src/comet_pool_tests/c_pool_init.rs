@@ -26,15 +26,6 @@ fn test_comet_pool_init() {
     use crate::comet_pool_tests::utils::create_token;
     let (token_1, token_1_admin) = create_token(&env, &controller);
     let (token_2, token_2_admin) = create_token(&env, &controller);
-    /*
-    let token_1 = env.register_stellar_asset_contract(controller.clone());
-    let token_1_client = MockTokenClient::new(&env, &token_1);
-    let token_2 = env.register_stellar_asset_contract(controller.clone());
-    let token_2_client = MockTokenClient::new(&env, &token_2);
-    
-    token_1_client.mint(&controller, &STROOP);
-    token_2_client.mint(&controller, &STROOP);
-    */
 
     token_1_admin.mint(&controller, &STROOP);
     token_2_admin.mint(&controller, &STROOP);

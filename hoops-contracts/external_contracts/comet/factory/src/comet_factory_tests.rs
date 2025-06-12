@@ -40,12 +40,7 @@ fn test_comet_factory() {
     let controller = Address::generate(&env);
     let (token_1, token_1_admin) = create_token(&env, &controller);
     let (token_2, token_2_admin) = create_token(&env, &controller);
-/*
-    let token_1 = env.register_stellar_asset_contract(controller.clone());
-    let token_1_client = StellarAssetClient::new(&env, &token_1);
-    let token_2 = env.register_stellar_asset_contract(controller.clone());
-    let token_2_client = StellarAssetClient::new(&env, &token_2);
-    */
+
     token_1_admin.mint(&controller, &1_0000000);
     token_2_admin.mint(&controller, &1_0000000);
 

@@ -2,7 +2,7 @@
 
 pub mod client;
 pub use client::RouterTrait;
-
+pub mod types;
 use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Vec, contracterror};
 use hoops_adapter_interface::AdapterClient;
 
@@ -33,7 +33,7 @@ pub struct LpPlan {
 pub struct Router;
 
 #[contractimpl]
-impl client::RouterTrait for Router {
+impl RouterTrait for Router {
     /* ---------- lifecycle ---------- */
     fn initialize(e: Env, admin_addr: Address) -> Result<(), RouterError> {
         if e.storage().instance().has(&Key::Admin) {
@@ -133,3 +133,6 @@ impl Router {
         Err(RouterError::AdapterMissing)
     }
 }
+
+#[cfg(test)]
+mod tests;
