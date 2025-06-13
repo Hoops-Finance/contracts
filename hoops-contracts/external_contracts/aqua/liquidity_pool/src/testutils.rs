@@ -11,13 +11,13 @@ use std::vec;
 use aqua_token_share::token_contract::{Client as ShareTokenClient, WASM};
 use aqua_utils::test_utils::jump;
 
-pub(crate) struct TestConfig {
-    pub(crate) users_count: u32,
-    pub(crate) mint_to_user: i128,
-    pub(crate) rewards_count: i128,
-    pub(crate) liq_pool_fee: u32,
-    pub(crate) reward_tps: u128,
-    pub(crate) reward_token_in_pool: bool,
+pub struct TestConfig {
+    pub users_count: u32,
+    pub mint_to_user: i128,
+    pub rewards_count: i128,
+    pub liq_pool_fee: u32,
+    pub reward_tps: u128,
+    pub reward_token_in_pool: bool,
 }
 
 impl Default for TestConfig {
@@ -33,28 +33,28 @@ impl Default for TestConfig {
     }
 }
 
-pub(crate) struct Setup<'a> {
-    pub(crate) env: Env,
-    pub(crate) router: Address,
-    pub(crate) users: vec::Vec<Address>,
-    pub(crate) token1: SorobanTokenClient<'a>,
-    pub(crate) token1_admin_client: SorobanTokenAdminClient<'a>,
-    pub(crate) token2: SorobanTokenClient<'a>,
-    pub(crate) token2_admin_client: SorobanTokenAdminClient<'a>,
-    pub(crate) token_reward: SorobanTokenClient<'a>,
-    pub(crate) token_reward_admin_client: SorobanTokenAdminClient<'a>,
-    pub(crate) reward_boost_token: SorobanTokenClient<'a>,
-    pub(crate) reward_boost_feed: reward_boost_feed::Client<'a>,
-    pub(crate) token_share: ShareTokenClient<'a>,
-    pub(crate) liq_pool: LiquidityPoolClient<'a>,
-    pub(crate) plane: PoolPlaneClient<'a>,
+pub struct Setup<'a> {
+    pub env: Env,
+    pub router: Address,
+    pub users: vec::Vec<Address>,
+    pub token1: SorobanTokenClient<'a>,
+    pub token1_admin_client: SorobanTokenAdminClient<'a>,
+    pub token2: SorobanTokenClient<'a>,
+    pub token2_admin_client: SorobanTokenAdminClient<'a>,
+    pub token_reward: SorobanTokenClient<'a>,
+    pub token_reward_admin_client: SorobanTokenAdminClient<'a>,
+    pub reward_boost_token: SorobanTokenClient<'a>,
+    pub reward_boost_feed: reward_boost_feed::Client<'a>,
+    pub token_share: ShareTokenClient<'a>,
+    pub liq_pool: LiquidityPoolClient<'a>,
+    pub plane: PoolPlaneClient<'a>,
 
-    pub(crate) admin: Address,
-    pub(crate) emergency_admin: Address,
-    pub(crate) rewards_admin: Address,
-    pub(crate) operations_admin: Address,
-    pub(crate) pause_admin: Address,
-    pub(crate) emergency_pause_admin: Address,
+    pub admin: Address,
+    pub emergency_admin: Address,
+    pub rewards_admin: Address,
+    pub operations_admin: Address,
+    pub pause_admin: Address,
+    pub emergency_pause_admin: Address,
 }
 
 impl Default for Setup<'_> {
@@ -67,7 +67,7 @@ impl Default for Setup<'_> {
 
 impl Setup<'_> {
     // Create setup from config and mint tokens for all users
-    pub(crate) fn new_with_config(config: &TestConfig) -> Self {
+    pub fn new_with_config(config: &TestConfig) -> Self {
         let setup = Self::setup(config);
         setup.mint_tokens_for_users(config.mint_to_user);
         setup.set_rewards_config(config.reward_tps);
@@ -77,7 +77,7 @@ impl Setup<'_> {
     // Create users, token1, token2, reward token, lp token
     //
     // Mint reward token (1_000_000_0000000) & approve for liquidity_pool token
-    pub(crate) fn setup(config: &TestConfig) -> Self {
+    pub fn setup(config: &TestConfig) -> Self {
         let e: Env = Env::default();
         e.mock_all_auths();
         e.cost_estimate().budget().reset_unlimited();
@@ -172,7 +172,7 @@ impl Setup<'_> {
         }
     }
 
-    pub(crate) fn generate_random_users(e: &Env, users_count: u32) -> vec::Vec<Address> {
+    pub fn generate_random_users(e: &Env, users_count: u32) -> vec::Vec<Address> {
         let mut users = vec![];
         for _c in 0..users_count {
             users.push(Address::generate(e));
@@ -180,7 +180,7 @@ impl Setup<'_> {
         users
     }
 
-    pub(crate) fn mint_tokens_for_users(&self, amount: i128) {
+    pub fn mint_tokens_for_users(&self, amount: i128) {
         for user in self.users.iter() {
             self.token1_admin_client.mint(user, &amount);
             assert_eq!(self.token1.balance(user), amount.clone());
@@ -190,7 +190,7 @@ impl Setup<'_> {
         }
     }
 
-    pub(crate) fn set_rewards_config(&self, reward_tps: u128) {
+    pub fn set_rewards_config(&self, reward_tps: u128) {
         if reward_tps > 0 {
             self.liq_pool.set_rewards_config(
                 &self.users[0],
@@ -201,22 +201,21 @@ impl Setup<'_> {
     }
 }
 
-pub(crate) fn create_token_contract<'a>(e: &Env, admin: &Address) -> SorobanTokenClient<'a> {
+pub fn create_token_contract<'a>(e: &Env, admin: &Address) -> SorobanTokenClient<'a> {
     SorobanTokenClient::new(
         e,
         &e.register_stellar_asset_contract_v2(admin.clone())
             .address(),
-    )
+        )
 }
-
-pub(crate) fn get_token_admin_client<'a>(
+pub fn get_token_admin_client<'a>(
     e: &Env,
     address: &Address,
 ) -> SorobanTokenAdminClient<'a> {
     SorobanTokenAdminClient::new(e, address)
 }
 
-pub(crate) fn create_plane_contract<'a>(e: &Env) -> PoolPlaneClient<'a> {
+pub fn create_plane_contract<'a>(e: &Env) -> PoolPlaneClient<'a> {
     PoolPlaneClient::new(e, &e.register(pool_plane::WASM, ()))
 }
 
@@ -226,7 +225,7 @@ mod reward_boost_feed {
     );
 }
 
-pub(crate) fn create_reward_boost_feed_contract<'a>(
+pub fn create_reward_boost_feed_contract<'a>(
     e: &Env,
     admin: &Address,
     operations_admin: &Address,

@@ -11,7 +11,7 @@ mod rewards;
 mod storage;
 mod aqua_lp_constant_tests;
 mod aqua_lp_constant_permission_tests;
-mod testutils;
+pub mod testutils;
 pub mod token;
 
 pub use contract::{LiquidityPool, LiquidityPoolClient};

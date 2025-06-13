@@ -12,6 +12,6 @@ mod router_interface;
 mod storage;
 mod aqua_lp_router_tests;
 mod aqua_lp_router_permissions_tests;
-mod testutils;
+pub mod testutils;
 
 pub use contract::{LiquidityPoolRouter, LiquidityPoolRouterClient};

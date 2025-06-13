@@ -1,4 +1,4 @@
-#![cfg(test)]
+//#![cfg(test)]
 #![allow(dead_code)]
 extern crate std;
 
@@ -6,7 +6,7 @@ use crate::LiquidityPoolRouterClient;
 use soroban_sdk::testutils::Address as _;
 use soroban_sdk::{Address, BytesN, Env, Symbol, Vec};
 
-pub(crate) mod test_token {
+pub mod test_token {
     use soroban_sdk::contractimport;
     contractimport!(file = "../../../bytecodes/soroban_token_contract.wasm");
 }
@@ -73,13 +73,13 @@ pub fn create_liquidity_calculator_contract<'a>(e: &Env) -> liquidity_calculator
     liquidity_calculator::Client::new(e, &e.register(liquidity_calculator::WASM, ()))
 }
 
-mod reward_boost_feed {
+pub mod reward_boost_feed {
     soroban_sdk::contractimport!(
         file = "../../../bytecodes/aqua_locker_feed_contract.wasm"
     );
 }
 
-pub(crate) fn create_reward_boost_feed_contract<'a>(
+pub fn create_reward_boost_feed_contract<'a>(
     e: &Env,
     admin: &Address,
     operations_admin: &Address,
@@ -94,24 +94,24 @@ pub(crate) fn create_reward_boost_feed_contract<'a>(
     )
 }
 
-pub(crate) struct Setup<'a> {
-    pub(crate) env: Env,
+pub struct Setup<'a> {
+    pub env: Env,
 
-    pub(crate) admin: Address,
+    pub admin: Address,
 
-    pub(crate) tokens: [test_token::Client<'a>; 4],
-    pub(crate) reward_token: test_token::Client<'a>,
+    pub tokens: [test_token::Client<'a>; 4],
+    pub reward_token: test_token::Client<'a>,
 
-    pub(crate) reward_boost_token: test_token::Client<'a>,
-    pub(crate) reward_boost_feed: reward_boost_feed::Client<'a>,
+    pub reward_boost_token: test_token::Client<'a>,
+    pub reward_boost_feed: reward_boost_feed::Client<'a>,
 
-    pub(crate) router: LiquidityPoolRouterClient<'a>,
+    pub router: LiquidityPoolRouterClient<'a>,
 
-    pub(crate) emergency_admin: Address,
-    pub(crate) rewards_admin: Address,
-    pub(crate) operations_admin: Address,
-    pub(crate) pause_admin: Address,
-    pub(crate) emergency_pause_admin: Address,
+    pub emergency_admin: Address,
+    pub rewards_admin: Address,
+    pub operations_admin: Address,
+    pub pause_admin: Address,
+    pub emergency_pause_admin: Address,
 }
 
 impl Default for Setup<'_> {
