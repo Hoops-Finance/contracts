@@ -13,6 +13,10 @@ use soroban_sdk::{
     String,
     Vec,
 };
+use aqua_soroban_liquidity_pool_router_contract::testutils::{create_reward_boost_feed_contract, create_plane_contract};
+
+//testutils::create_reward_boost_feed_contract;
+
 extern crate std;
 // WASM files from the bytecodes directory
 const TOKEN_WASM: &[u8] = include_bytes!("../../../bytecodes/soroban_token_contract.wasm");
@@ -275,6 +279,7 @@ pub fn set_phoenix_amm_infra(
         admin.clone(),
         user.clone(),
     );
+    
     let pho_bc_lp_init_info = generate_pho_lp_init_info(
         token_b_client.address.clone(),
         token_c_client.address.clone(),
@@ -282,10 +287,13 @@ pub fn set_phoenix_amm_infra(
         admin.clone(),
         user.clone(),
     );
+    std::println!("Phoenix LP Init Info AB: {:?}", pho_ab_lp_init_info);
+    std::println!("Phoenix LP Init Info BC: {:?}", pho_bc_lp_init_info);
+
     let phoenix_constant_pool_ab_address = phoenix_factory.create_liquidity_pool(
         &admin,
         &pho_ab_lp_init_info,
-        &String::from_str(&env, "phoenix_pool_ab"),
+        &String::from_str(&env, "AB Constant"),
         &String::from_str(&env, "TKNA/TKNB"),
         //&PhoenixPoolType::Constant,
         &phoenix_factory::PoolType::Xyk,
@@ -293,16 +301,19 @@ pub fn set_phoenix_amm_infra(
         &100i64,
         &1_000,
     );
+    std::println!("Phoenix constant pool AB address: {:?}", phoenix_constant_pool_ab_address);
     let phoenix_pool_stable_bc_address = phoenix_factory.create_liquidity_pool(
         &admin,
         &pho_bc_lp_init_info,
-        &String::from_str(&env, "phoenix_pool_bc"),
+        &String::from_str(&env, "BC Stable"),
         &String::from_str(&env, "TKNB/TKNC"),
         &phoenix_factory::PoolType::Stable,
-        &None::<u64>,
+        &Some(10),
         &100i64,
         &1_000,
     );
+    std::println!("Phoenix stable pool BC address: {:?}", phoenix_pool_stable_bc_address);
+    std::println!("Phoenix Pools created: {:?}, {:?}", phoenix_constant_pool_ab_address, phoenix_pool_stable_bc_address);
     phoenix_pool_ids.push_back(phoenix_constant_pool_ab_address.clone());
     phoenix_pool_ids.push_back(phoenix_pool_stable_bc_address.clone());
     let phoenix_amm = AmmInfrastructure {
@@ -317,7 +328,12 @@ pub fn set_phoenix_amm_infra(
 pub fn setup_soroswap_environment<'a>(
     env: &'a Env,
     admin: &Address,
-) -> (SoroswapFactoryClient<'a>, SoroswapRouterClient<'a>) {
+    user: &Address,
+    token_a: &Address,
+    token_b: &Address,
+    token_c: &Address,
+    initial_mint_amount: i128,
+) -> (AmmInfrastructure, SoroswapRouterClient<'a>, Address) {
     let soroswap_factory_id = env.register(SOROSWAP_FACTORY_WASM, ());
     let soroswap_router_id = env.register(SOROSWAP_ROUTER_WASM, ());
     let soroswap_pair_wasm_hash = env.deployer().upload_contract_wasm(SOROSWAP_PAIR_WASM);
@@ -328,7 +344,193 @@ pub fn setup_soroswap_environment<'a>(
     soroswap_factory.initialize(admin, &soroswap_pair_wasm_hash);
     soroswap_router.initialize(&soroswap_factory_id);
 
-    (soroswap_factory, soroswap_router)
+    let mut soroswap_pool_ids = Vec::new(env);
+
+    // Pool 1: token_a/token_b
+    soroswap_factory.create_pair(token_a, token_b);
+    let pair_ab_address = soroswap_factory.get_pair(token_a, token_b);
+    soroswap_pool_ids.push_back(pair_ab_address.clone());
+    let token_a_client = TokenClient::new(env, token_a);
+    let token_b_client = TokenClient::new(env, token_b);
+    token_a_client.approve(user, &soroswap_router.address, &(initial_mint_amount / 2), &200);
+    token_b_client.approve(user, &soroswap_router.address, &(initial_mint_amount / 2), &200);
+    soroswap_router.add_liquidity(
+        token_a,
+        token_b,
+        &(initial_mint_amount / 10),
+        &(initial_mint_amount / 10),
+        &0,
+        &0,
+        user,
+        &(env.ledger().timestamp() + 100),
+    );
+
+    // Pool 2: token_b/token_c
+    soroswap_factory.create_pair(token_b, token_c);
+    let pair_bc_address = soroswap_factory.get_pair(token_b, token_c);
+    soroswap_pool_ids.push_back(pair_bc_address.clone());
+    let token_c_client = TokenClient::new(env, token_c);
+    token_b_client.approve(user, &soroswap_router.address, &(initial_mint_amount / 2), &200);
+    token_c_client.approve(user, &soroswap_router.address, &(initial_mint_amount / 2), &200);
+    soroswap_router.add_liquidity(
+        token_b,
+        token_c,
+        &(initial_mint_amount / 10),
+        &(initial_mint_amount / 10),
+        &0,
+        &0,
+        user,
+        &(env.ledger().timestamp() + 100),
+    );
+    std::println!("soroswap environment setup complete. Pools: {:?}, {:?}, router: {:?}, factory: {:?}", pair_ab_address, pair_bc_address, soroswap_router_id, soroswap_factory_id);
+    let soroswap_amm = AmmInfrastructure {
+        name: "Soroswap".into_val(env),
+        factory_id: soroswap_factory_id,
+        router_id: Some(soroswap_router_id.clone()),
+        pool_ids: soroswap_pool_ids,
+    };
+    (soroswap_amm, soroswap_router, soroswap_router_id)
+}
+
+pub fn setup_aqua_environment(
+    env: &Env,
+    admin: &Address,
+    user: &Address,
+    token_a: &Address,
+    token_b: &Address,
+    token_c: &Address,
+) -> (AmmInfrastructure, Address) {
+    let aqua_router_id = env.register(AQUA_ROUTER_WASM, ());
+    let aqua_router = AquaRouterClient::new(env, &aqua_router_id);
+    let pool_hash = env.deployer().upload_contract_wasm(AQUA_POOL_CONSTANT_WASM);
+    let stableswap_pool_hash = env.deployer().upload_contract_wasm(AQUA_STABLE_POOL_WASM);
+    let token_hash = env.deployer().upload_contract_wasm(TOKEN_WASM);
+    let reward_token = TokenClient::new(env, &env.register_stellar_asset_contract_v2(admin.clone()).address());
+    let reward_boost_token = TokenClient::new(env, &env.register_stellar_asset_contract_v2(admin.clone()).address());
+    // Mint reward tokens to the user for pool creation payment
+    let initial_mint_amount: i128 = 10_000_000 * 10_000_000;
+    reward_token.mint(user, &initial_mint_amount);
+    reward_boost_token.mint(user, &initial_mint_amount);
+    aqua_router.init_admin(admin);
+    aqua_router.set_privileged_addrs(
+        admin,
+        &admin.clone(),
+        &admin.clone(),
+        &admin.clone(),
+        &Vec::from_array(env, [admin.clone().clone()]),
+    );
+    aqua_router.set_pool_hash(admin, &pool_hash);
+    aqua_router.set_stableswap_pool_hash(admin, &stableswap_pool_hash);
+    aqua_router.set_token_hash(admin, &token_hash);
+    aqua_router.set_reward_token(admin, &reward_token.address);
+    aqua_router.configure_init_pool_payment(
+        admin,
+        &reward_token.address,
+        &1_0000000,
+        &1_0000000,
+        &aqua_router.address,
+    );
+    
+    let reward_boost_feed = create_reward_boost_feed_contract(env, &admin, &admin, &admin);
+    
+    aqua_router.set_reward_boost_config(admin, &reward_boost_token.address, &reward_boost_feed.address);
+
+    let plane_contract = create_plane_contract(env);
+    aqua_router.set_pools_plane(admin, &plane_contract.address);
+    let mut aqua_pool_ids = Vec::new(&env);
+    let initial_mint_amount: i128 = 10_000_000 * 10_000_000;
+    let token_a_client = TokenClient::new(&env, token_a);
+    let token_b_client = TokenClient::new(&env, token_b);
+    let token_c_client = TokenClient::new(&env, token_c);
+    // Approve the router to spend user's reward tokens for pool creation
+    reward_token.approve(user, &aqua_router.address, &initial_mint_amount, &200);
+    reward_boost_token.approve(user, &aqua_router.address, &initial_mint_amount, &200);
+    // Approve the router to spend user's tokens for pool creation
+    token_a_client.approve(user, &aqua_router.address, &(initial_mint_amount / 2), &200);
+    token_b_client.approve(user, &aqua_router.address, &(initial_mint_amount / 2), &200);
+    token_c_client.approve(user, &aqua_router.address, &(initial_mint_amount / 2), &200);
+    let aqua_tokens = Vec::from_array(env, [token_a.clone(), token_b.clone()]);
+    let (aqua_pool_ab_hash, aqua_pool_ab_address) = aqua_router.init_standard_pool(user, &aqua_tokens, &30);
+    aqua_pool_ids.push_back(aqua_pool_ab_address.clone());
+    let aqua_stable_tokens = Vec::from_array(env, [token_b.clone(), token_c.clone()]);
+    let (_aqua_stable_bc_hash, aqua_stable_bc_address) = aqua_router.init_stableswap_pool(user, &aqua_stable_tokens, &10);
+    aqua_pool_ids.push_back(aqua_stable_bc_address.clone());
+    // Approve the pool contracts for deposit (after creation)
+    token_a_client.approve(user, &aqua_pool_ab_address, &(initial_mint_amount / 2), &200);
+    token_b_client.approve(user, &aqua_pool_ab_address, &(initial_mint_amount / 2), &200);
+    token_b_client.approve(user, &aqua_stable_bc_address, &(initial_mint_amount / 2), &200);
+    token_c_client.approve(user, &aqua_stable_bc_address, &(initial_mint_amount / 2), &200);
+    let deposit_amounts_ab = vec![env, initial_mint_amount as u128 / 10, initial_mint_amount as u128 / 10];
+    let _ = aqua_router.deposit(user, &aqua_tokens, &aqua_pool_ab_hash, &deposit_amounts_ab, &0);
+    let deposit_amounts_bc = vec![env, initial_mint_amount as u128 / 10, initial_mint_amount as u128 / 10];
+    let _ = aqua_router.deposit(user, &aqua_stable_tokens, &_aqua_stable_bc_hash, &deposit_amounts_bc, &0);
+    std::println!("Aqua pools created: {:?}, {:?}", aqua_pool_ab_address, aqua_stable_bc_address);
+    (AmmInfrastructure {
+        name: "Aqua".into_val(env),
+        factory_id: aqua_router_id.clone(),
+        router_id: Some(aqua_router_id.clone()),
+        pool_ids: aqua_pool_ids,
+    }, aqua_router_id)
+}
+
+pub fn setup_comet_environment(
+    env: &Env,
+    admin: &Address,
+    user: &Address,
+    token_a: &Address,
+    token_b: &Address,
+    token_c: &Address,
+    initial_mint_amount: i128,
+) -> AmmInfrastructure {
+    std::println!("[Comet] Registering factory contract");
+    let comet_factory_id = env.register(COMET_FACTORY_WASM, ());
+    let comet_factory = CometFactoryClient::new(env, &comet_factory_id);
+    std::println!("[Comet] Uploading pool WASM");
+    let comet_pool_wasm_hash = env.deployer().upload_contract_wasm(COMET_POOL_WASM);
+    std::println!("[Comet] Initializing factory");
+    comet_factory.init(&comet_pool_wasm_hash);
+    let mut comet_pool_ids = Vec::new(env);
+    // --- Robust Comet Pool Setup ---
+    // Pool 1: token_a/token_b, 80/20, 1M each
+    let tokens_ab = vec![env, token_a.clone(), token_b.clone()];
+    let weights_ab = vec![env, 8_000_000i128, 2_000_000i128];
+    let balances_ab = vec![env, 1_000_000i128, 1_000_000i128];
+    let salt_ab = BytesN::from_array(env, &[0; 32]);
+    let swap_fee = 3_000i128; // 0.03% fee, adjust as needed
+    std::println!("[Comet] Creating pool: token_a/token_b (80/20, 1M each)");
+    let pool_ab = comet_factory.new_c_pool(
+        &salt_ab,
+        admin,
+        &tokens_ab,
+        &weights_ab,
+        &balances_ab,
+        &swap_fee,
+    );
+    std::println!("[Comet] Pool AB address: {:?}", pool_ab);
+    comet_pool_ids.push_back(pool_ab.clone());
+    // Pool 2: token_b/token_c, 50/50, 1M each
+    let tokens_bc = vec![env, token_b.clone(), token_c.clone()];
+    let weights_bc = vec![env, 5_000_000i128, 5_000_000i128];
+    let balances_bc = vec![env, 1_000_000i128, 1_000_000i128];
+    let salt_bc = BytesN::from_array(env, &[1; 32]);
+    std::println!("[Comet] Creating pool: token_b/token_c (50/50, 1M each)");
+    let pool_bc = comet_factory.new_c_pool(
+        &salt_bc,
+        admin,
+        &tokens_bc,
+        &weights_bc,
+        &balances_bc,
+        &swap_fee,
+    );
+    std::println!("[Comet] Pool BC address: {:?}", pool_bc);
+    comet_pool_ids.push_back(pool_bc.clone());
+    std::println!("[Comet] All pools created: {:?}", comet_pool_ids);
+    AmmInfrastructure {
+        name: "Comet".into_val(env),
+        factory_id: comet_factory_id,
+        router_id: None,
+        pool_ids: comet_pool_ids,
+    }
 }
 
 pub fn setup_test_accounts(env: &Env) -> (Address, Address) {
@@ -341,213 +543,45 @@ pub fn setup_test_accounts(env: &Env) -> (Address, Address) {
 impl<'a> HoopsTestEnvironment<'a> {
     pub fn setup() -> Self {
         let env = Env::default();
+        std::println!("[SETUP] Starting HoopsTestEnvironment setup");
         env.mock_all_auths();
         env.cost_estimate().budget().reset_unlimited(); // Corrected budget reset
 
         // Deploy Tokens
+        std::println!("[SETUP] Creating test accounts");
         let (admin, user) = setup_test_accounts(&env);
 
+        std::println!("[SETUP] Deploying tokens");
         let (token_a_client, token_a_admin) = create_stellar_token(&env, &admin);
         let (token_b_client, token_b_admin) = create_stellar_token(&env, &admin);
         let (token_c_client, token_c_admin) = create_stellar_token(&env, &admin);
 
         let initial_mint_amount: i128 = 10_000_000 * 10_000_000; // 10M tokens with 7 decimals
 
-        // mint the initial tokens to admin:
+        std::println!("[SETUP] Minting tokens to admin and user");
         token_a_admin.mint(&admin, &initial_mint_amount);
         token_b_admin.mint(&admin, &initial_mint_amount);
         token_c_admin.mint(&admin, &initial_mint_amount);
-
-        // Mint tokens to the user as well
         token_a_admin.mint(&user, &initial_mint_amount);
         token_b_admin.mint(&user, &initial_mint_amount);
         token_c_admin.mint(&user, &initial_mint_amount);
 
-        let soroswap_factory_id = env.register(SOROSWAP_FACTORY_WASM, ());
-        let soroswap_router_id = env.register(SOROSWAP_ROUTER_WASM, ());
-        let soroswap_pair_wasm_hash = env.deployer().upload_contract_wasm(SOROSWAP_PAIR_WASM);
-
-        let soroswap_factory = SoroswapFactoryClient::new(&env, &soroswap_factory_id);
-        let soroswap_router = SoroswapRouterClient::new(&env, &soroswap_router_id);
-
-        soroswap_factory.initialize(&admin, &soroswap_pair_wasm_hash);
-        soroswap_router.initialize(&soroswap_factory_id);
-
-        let mut soroswap_pool_ids = Vec::new(&env);
-
-        soroswap_factory.create_pair(&token_a_client.address, &token_b_client.address);
-        let pair_ab_address =
-            soroswap_factory.get_pair(&token_a_client.address, &token_b_client.address);
-        soroswap_pool_ids.push_back(pair_ab_address.clone());
-        token_a_client.approve(
-            &user,
-            &soroswap_router.address,
-            &(initial_mint_amount / 2),
-            &200,
+        std::println!("[SETUP] Setting up Soroswap environment");
+        let (soroswap_amm, soroswap_router, soroswap_router_id) = setup_soroswap_environment(
+            &env, &admin, &user, &token_a_client.address, &token_b_client.address, &token_c_client.address, initial_mint_amount
         );
-        token_b_client.approve(
-            &user,
-            &soroswap_router.address,
-            &(initial_mint_amount / 2),
-            &200,
+        std::println!("[SETUP] Soroswap environment ready");
+
+        std::println!("[SETUP] Setting up Aqua environment");
+        let (aqua_amm, aqua_router_id) = setup_aqua_environment(
+            &env, &admin, &user, &token_a_client.address, &token_b_client.address, &token_c_client.address
         );
-        soroswap_router.add_liquidity(
-            &token_a_client.address,
-            &token_b_client.address,
-            &(initial_mint_amount / 10), // desired_a
-            &(initial_mint_amount / 10), // desired_b
-            &0,                          // min_a
-            &0,                          // min_b
-            &user,
-            &(env.ledger().timestamp() + 100),
-        );
+        std::println!("[SETUP] Aqua environment ready");
 
-        // Pool 2: token_b/token_c
-        soroswap_factory.create_pair(&token_b_client.address, &token_c_client.address);
-        let pair_bc_address =
-            soroswap_factory.get_pair(&token_b_client.address, &token_c_client.address); // This line had E0599
-        soroswap_pool_ids.push_back(pair_bc_address.clone());
-        token_b_client.approve(
-            &user,
-            &soroswap_router.address,
-            &(initial_mint_amount / 2),
-            &200,
-        );
-        token_c_client.approve(
-            &user,
-            &soroswap_router.address,
-            &(initial_mint_amount / 2),
-            &200,
-        );
-        soroswap_router.add_liquidity(
-            &token_b_client.address,
-            &token_c_client.address,
-            &(initial_mint_amount / 10), // desired_a
-            &(initial_mint_amount / 10), // desired_b
-            &0,                          // min_a
-            &0,                          // min_b
-            &user,
-            &(env.ledger().timestamp() + 100),
-        );
-        let soroswap_amm = AmmInfrastructure {
-            name: "Soroswap".into_val(&env),
-            factory_id: soroswap_factory_id,
-            router_id: Some(soroswap_router_id.clone()),
-            pool_ids: soroswap_pool_ids,
-        };
-
-        // --- Aqua Setup --- (this should be it's own function later.)
-        let aqua_router_id = env.register(AQUA_ROUTER_WASM, ());
-        let aqua_router = AquaRouterClient::new(&env, &aqua_router_id);
-        let aqua_pool_wasm_hash = env.deployer().upload_contract_wasm(AQUA_POOL_CONSTANT_WASM);
-        let aqua_stable_pool_wasm_hash = env.deployer().upload_contract_wasm(AQUA_STABLE_POOL_WASM);
-
-        aqua_router.init_admin(&admin);
-        std::println!("Aqua Router initialized with admin: {:?}", admin);
-        let mut aqua_pool_ids = Vec::new(&env);
-
-        let aqua_tokens = Vec::from_array(
-            &env,
-            [
-                token_a_client.address.clone(),
-                token_b_client.address.clone(),
-            ],
-        );
-
-        let (aqua_pool_ab_hash, aqua_pool_ab_address) =
-            aqua_router.init_standard_pool(&user, &aqua_tokens, &30);
-
-        // i'm not sure but we may need to track constant and stables seperately.
-        aqua_pool_ids.push_back(aqua_pool_ab_address.clone());
-
-        token_a_client.approve(
-            &user,
-            &aqua_pool_ab_address,
-            &(initial_mint_amount / 2),
-            &200,
-        );
-        token_b_client.approve(
-            &user,
-            &aqua_pool_ab_address,
-            &(initial_mint_amount / 2),
-            &200,
-        );
-
-        let aqua_pool_ab_client = AquaPoolClient::new(&env, &aqua_pool_ab_address);
-
-        // Deposit into Aqua Pool AB
-        let deposit_amounts_ab = vec![
-            &env,
-            initial_mint_amount as u128 / 10,
-            initial_mint_amount as u128 / 10,
-        ];
-
-        let _aqua_ab_shares = aqua_router.deposit(
-            &user,
-            &aqua_tokens,
-            &aqua_pool_ab_hash,
-            &deposit_amounts_ab,
-            &0,
-        );
-
-        let aqua_ab_liquidity = aqua_router.get_liquidity(&aqua_tokens, &aqua_pool_ab_hash);
-
-        let a_aqua: u128 = 100;
-        let fee_fraction_aqua: u32 = 30; // 0.3%
-
-        let aqua_stable_tokens = Vec::from_array(
-            &env,
-            [
-                token_b_client.address.clone(),
-                token_c_client.address.clone(),
-            ],
-        );
-
-        let (aqua_stable_bc_hash, aqua_stable_bc_address) =
-            aqua_router.init_stableswap_pool(&user, &aqua_stable_tokens, &10);
-
-        aqua_pool_ids.push_back(aqua_stable_bc_address.clone());
-
-        token_b_client.approve(
-            &user,
-            &aqua_stable_bc_address,
-            &(initial_mint_amount / 2),
-            &200,
-        );
-        token_c_client.approve(
-            &user,
-            &aqua_stable_bc_address,
-            &(initial_mint_amount / 2),
-            &200,
-        );
-
-        // for testing deposit or swaps direct to pool.
-        let aqua_pool_bc_stable_client = AquaStablePoolClient::new(&env, &aqua_stable_bc_address);
-        // for testing against the router.
-        let deposit_amounts_bc = vec![
-            &env,
-            initial_mint_amount as u128 / 10,
-            initial_mint_amount as u128 / 10,
-        ];
-        let _shares_aqua_pool_bc =
-            aqua_pool_bc_stable_client.deposit(&user, &deposit_amounts_bc, &0);
-        let _shares_aqua_router_bc = aqua_router.deposit(
-            &user,
-            &aqua_stable_tokens,
-            &aqua_stable_bc_hash,
-            &deposit_amounts_bc,
-            &0,
-        );
-
-        let aqua_amm = AmmInfrastructure {
-            name: "Aqua".into_val(&env),
-            factory_id: aqua_router_id.clone(),
-            router_id: Some(aqua_router_id.clone()),
-            pool_ids: aqua_pool_ids,
-        };
-
+        std::println!("[SETUP] Deploying Phoenix factory");
         let phoenix_factory = deploy_phoenix_factory_contract(&env, Some(admin.clone()));
         let phoenix_factory_id = phoenix_factory.address.clone();
+        std::println!("[SETUP] Setting up Phoenix pools");
         let phoenix_amm = set_phoenix_amm_infra(
             &env,
             admin.clone(),
@@ -557,46 +591,53 @@ impl<'a> HoopsTestEnvironment<'a> {
             &token_b_client,
             &token_c_client,
         );
+        std::println!("[SETUP] Phoenix environment ready");
 
-        // --- Comet Setup ---yea
-        let comet_factory_id = env.register(COMET_FACTORY_WASM, ());
-        let comet_factory = CometFactoryClient::new(&env, &comet_factory_id);
-        let comet_pool_wasm_hash = env.deployer().upload_contract_wasm(COMET_POOL_WASM);
-        comet_factory.init(&comet_pool_wasm_hash);
-        let mut comet_pool_ids = Vec::new(&env);
-
-        let comet_amm = AmmInfrastructure {
-            name: "Comet".into_val(&env),
-            factory_id: comet_factory_id.clone(),
-            router_id: None,
-            pool_ids: comet_pool_ids, // Will be empty for now
-        };
+        // --- Comet Setup ---
+        std::println!("[SETUP] Setting up Comet environment");
+        let comet_amm = setup_comet_environment(
+            &env,
+            &admin,
+            &user,
+            &token_a_client.address,
+            &token_b_client.address,
+            &token_c_client.address,
+            initial_mint_amount,
+        );
+        std::println!("[SETUP] Comet environment ready");
 
         // --- Deploy Adapters ---
+        std::println!("[SETUP] Deploying Soroswap adapter");
         let soroswap_adapter_id = env.register(SOROSWAP_ADAPTER_WASM, ());
         let soroswap_adapter = SoroswapAdapterClient::new(&env, &soroswap_adapter_id);
         soroswap_adapter.initialize(&3, &soroswap_router_id);
+        std::println!("[SETUP] Soroswap adapter initialized");
 
+        std::println!("[SETUP] Deploying Aqua adapter");
         let aqua_adapter_id = env.register(AQUA_ADAPTER_WASM, ());
         let aqua_adapter = AquaAdapterClient::new(&env, &aqua_adapter_id);
         aqua_adapter.initialize(&0, &aqua_router_id);
+        std::println!("[SETUP] Aqua adapter initialized");
 
+        std::println!("[SETUP] Deploying Phoenix adapter");
         let phoenix_adapter_id = env.register(PHOENIX_ADAPTER_WASM, ());
         let phoenix_adapter = PhoenixAdapterClient::new(&env, &phoenix_adapter_id);
-
         if let Some(first_phoenix_pool) = phoenix_amm.pool_ids.get(0) {
             phoenix_adapter.initialize(&2, &first_phoenix_pool);
         } else {
             phoenix_adapter.initialize(&2, &phoenix_factory_id);
         }
+        std::println!("[SETUP] Phoenix adapter initialized");
 
+        std::println!("[SETUP] Deploying Comet adapter");
         let comet_adapter_id = env.register(COMET_ADAPTER_WASM, ());
         let comet_adapter = CometAdapterClient::new(&env, &comet_adapter_id);
         if let Some(first_comet_pool) = comet_amm.pool_ids.get(0) {
             comet_adapter.initialize(&1, &first_comet_pool);
         } else {
-            comet_adapter.initialize(&1, &comet_factory_id);
+            comet_adapter.initialize(&1, &comet_amm.factory_id);
         }
+        std::println!("[SETUP] Comet adapter initialized");
 
         let adapters = AdapterContracts {
             soroswap: soroswap_adapter,
@@ -606,18 +647,13 @@ impl<'a> HoopsTestEnvironment<'a> {
         };
 
         // --- Deploy Hoops Router ---
+        std::println!("[SETUP] Deploying Hoops router");
         let hoops_router_id = env.register(HOOPS_ROUTER_WASM, ());
         let hoops_router = HoopsRouterClient::new(&env, &hoops_router_id);
-
-        /*
-        let mut adapter_configs = Vec::new(&env);
-        adapter_configs.push_back((3u32, soroswap_adapter_id.clone())); // Ensure protocol_id is u32
-        adapter_configs.push_back((0u32, aqua_adapter_id.clone()));
-        adapter_configs.push_back((2u32, phoenix_adapter_id.clone()));
-        adapter_configs.push_back((1u32, comet_adapter_id.clone()));
-*/
         hoops_router.initialize(&admin);
+        std::println!("[SETUP] Hoops router initialized");
 
+        std::println!("[SETUP] HoopsTestEnvironment setup complete");
         Self {
             env,
             admin,
