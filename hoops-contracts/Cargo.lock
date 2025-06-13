@@ -126,20 +126,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aqua-soroban-liquidity-pool-router-contract"
-version = "0.1.0"
-dependencies = [
- "aqua-liquidity-pool-validation-errors",
- "aqua-upgrade",
- "aqua-utils",
- "aqua_access_control",
- "aqua_rewards",
- "aqua_token_share",
- "paste",
- "soroban-sdk",
-]
-
-[[package]]
 name = "aqua-soroban-liquidity-pool-stableswap-contract"
 version = "0.1.0"
 dependencies = [
@@ -194,6 +180,20 @@ name = "aqua_soroban-liquidity-pool-provider-swap-fee-contract"
 version = "0.1.0"
 dependencies = [
  "aqua-utils",
+ "paste",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "aqua_soroban_liquidity_pool_router_contract"
+version = "0.1.0"
+dependencies = [
+ "aqua-liquidity-pool-validation-errors",
+ "aqua-upgrade",
+ "aqua-utils",
+ "aqua_access_control",
+ "aqua_rewards",
+ "aqua_token_share",
  "paste",
  "soroban-sdk",
 ]
@@ -867,6 +867,7 @@ dependencies = [
 name = "hoops-router"
 version = "0.1.0"
 dependencies = [
+ "aqua_soroban_liquidity_pool_router_contract",
  "hoops-adapter-interface",
  "hoops-common",
  "soroban-sdk",

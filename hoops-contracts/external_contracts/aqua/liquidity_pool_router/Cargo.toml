@@ -1,11 +1,11 @@
 [package]
-name = "aqua-soroban-liquidity-pool-router-contract"
+name = "aqua_soroban_liquidity_pool_router_contract"
 version = "0.1.0"
 edition = "2021"
 publish = false
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = { workspace = true }

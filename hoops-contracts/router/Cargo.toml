@@ -7,6 +7,10 @@ edition = { workspace = true }
 crate-type = ["cdylib"]
 
 [dependencies]
-soroban-sdk              = { workspace = true, features = ["testutils"] }
+soroban-sdk              = { workspace = true }
 hoops-common             = { path = "../common" }
 hoops-adapter-interface  = { path = "../adapter-interface" }
+
+[dev-dependencies]
+soroban-sdk              = { workspace = true, features = ["testutils"] }
+aqua_soroban_liquidity_pool_router_contract = { path = "../external_contracts/aqua/liquidity_pool_router" }

@@ -76,6 +76,7 @@ aqua_rewards = { path = "external_contracts/aqua/rewards" }
 aqua-upgrade = { path = "external_contracts/aqua/upgrade" }
 aqua-liquidity-pool-validation-errors = { path = "external_contracts/aqua/liquidity_pool_validation_errors" }
 aqua-liquidity-pool-events = { path = "external_contracts/aqua/liquidity_pool_events" }
+aqua_soroban_liquidity_pool_router_contract = { path = "external_contracts/aqua/liquidity_pool_router" }
 paste = { version = "1.0.15" }
 soroban-fixed-point-math = { version = "1.3.0" }
 curve = { path = "external_contracts/phoenix/packages/curve" }
