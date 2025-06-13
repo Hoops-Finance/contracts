@@ -540,6 +540,43 @@ pub fn setup_test_accounts(env: &Env) -> (Address, Address) {
     (admin, user)
 }
 
+// Utility function to print pool reserves for a given AMM
+fn print_amm_pools_and_reserves(env: &Env, amm: &AmmInfrastructure, label: &str) {
+    std::println!("[REPORT] {} Pools:", label);
+    for pool_addr in amm.pool_ids.iter() {
+        std::println!("[REPORT]   Pool: {:?}", pool_addr);
+        if label == "Soroswap" {
+            let pool = SoroswapPairClient::new(env, &pool_addr);
+            let token0 = pool.token_0();
+            let token1 = pool.token_1();
+            let (r0, r1) = pool.get_reserves();
+            std::println!("[REPORT]     Tokens: {:?}, {:?}", token0, token1);
+            std::println!("[REPORT]     Reserves: {:?}, {:?}", r0, r1);
+        } else if label == "Aqua" {
+            let pool = AquaPoolClient::new(env, &pool_addr);
+            let tokens = pool.get_tokens();
+            let reserves = pool.get_reserves();
+            std::println!("[REPORT]     Tokens: {:?}", tokens);
+            std::println!("[REPORT]     Reserves: {:?}", reserves);
+        } else if label == "Phoenix" {
+            let pool = PhoenixPoolClient::new(env, &pool_addr);
+            let info = pool.query_pool_info();
+            std::println!("[REPORT]     Pool Info: {:?}", info);
+            std::println!("[REPORT]     Asset A: {:?} amount: {:?}", info.asset_a.address, info.asset_a.amount);
+            std::println!("[REPORT]     Asset B: {:?} amount: {:?}", info.asset_b.address, info.asset_b.amount);
+            std::println!("[REPORT]     LP Share: {:?} amount: {:?}", info.asset_lp_share.address, info.asset_lp_share.amount);
+        } else if label == "Comet" {
+            let pool = CometPoolClient::new(env, &pool_addr);
+            let tokens = pool.get_tokens();
+            std::println!("[REPORT]     Tokens: {:?}", tokens);
+            for token in tokens.iter() {
+                let bal = pool.get_balance(&token);
+                std::println!("[REPORT]       Balance for token {:?}: {:?}", token, bal);
+            }
+        }
+    }
+}
+
 impl<'a> HoopsTestEnvironment<'a> {
     pub fn setup() -> Self {
         let env = Env::default();
@@ -553,34 +590,48 @@ impl<'a> HoopsTestEnvironment<'a> {
 
         std::println!("[SETUP] Deploying tokens");
         let (token_a_client, token_a_admin) = create_stellar_token(&env, &admin);
+        std::println!("[LOG] Token A deployed at: {:?}", token_a_client.address);
         let (token_b_client, token_b_admin) = create_stellar_token(&env, &admin);
+        std::println!("[LOG] Token B deployed at: {:?}", token_b_client.address);
         let (token_c_client, token_c_admin) = create_stellar_token(&env, &admin);
+        std::println!("[LOG] Token C deployed at: {:?}", token_c_client.address);
 
         let initial_mint_amount: i128 = 10_000_000 * 10_000_000; // 10M tokens with 7 decimals
 
         std::println!("[SETUP] Minting tokens to admin and user");
-        token_a_admin.mint(&admin, &initial_mint_amount);
-        token_b_admin.mint(&admin, &initial_mint_amount);
-        token_c_admin.mint(&admin, &initial_mint_amount);
-        token_a_admin.mint(&user, &initial_mint_amount);
-        token_b_admin.mint(&user, &initial_mint_amount);
-        token_c_admin.mint(&user, &initial_mint_amount);
+        token_a_admin.mint(&admin, &initial_mint_amount); std::println!("[LOG] Minted {} TokenA to {:?}", initial_mint_amount, admin);
+        token_b_admin.mint(&admin, &initial_mint_amount); std::println!("[LOG] Minted {} TokenB to {:?}", initial_mint_amount, admin);
+        token_c_admin.mint(&admin, &initial_mint_amount); std::println!("[LOG] Minted {} TokenC to {:?}", initial_mint_amount, admin);
+        token_a_admin.mint(&user, &initial_mint_amount); std::println!("[LOG] Minted {} TokenA to {:?}", initial_mint_amount, user);
+        token_b_admin.mint(&user, &initial_mint_amount); std::println!("[LOG] Minted {} TokenB to {:?}", initial_mint_amount, user);
+        token_c_admin.mint(&user, &initial_mint_amount); std::println!("[LOG] Minted {} TokenC to {:?}", initial_mint_amount, user);
 
         std::println!("[SETUP] Setting up Soroswap environment");
         let (soroswap_amm, soroswap_router, soroswap_router_id) = setup_soroswap_environment(
             &env, &admin, &user, &token_a_client.address, &token_b_client.address, &token_c_client.address, initial_mint_amount
         );
+        std::println!("[LOG] Soroswap router deployed at: {:?}", soroswap_router_id);
+        std::println!("[LOG] Soroswap factory deployed at: {:?}", soroswap_amm.factory_id);
+        for (i, pool) in soroswap_amm.pool_ids.iter().enumerate() {
+            std::println!("[LOG] Soroswap pool {} deployed at: {:?}", i, pool);
+        }
         std::println!("[SETUP] Soroswap environment ready");
 
         std::println!("[SETUP] Setting up Aqua environment");
         let (aqua_amm, aqua_router_id) = setup_aqua_environment(
             &env, &admin, &user, &token_a_client.address, &token_b_client.address, &token_c_client.address
         );
+        std::println!("[LOG] Aqua router deployed at: {:?}", aqua_router_id);
+        std::println!("[LOG] Aqua factory (router) deployed at: {:?}", aqua_amm.factory_id);
+        for (i, pool) in aqua_amm.pool_ids.iter().enumerate() {
+            std::println!("[LOG] Aqua pool {} deployed at: {:?}", i, pool);
+        }
         std::println!("[SETUP] Aqua environment ready");
 
         std::println!("[SETUP] Deploying Phoenix factory");
         let phoenix_factory = deploy_phoenix_factory_contract(&env, Some(admin.clone()));
         let phoenix_factory_id = phoenix_factory.address.clone();
+        std::println!("[LOG] Phoenix factory deployed at: {:?}", phoenix_factory_id);
         std::println!("[SETUP] Setting up Phoenix pools");
         let phoenix_amm = set_phoenix_amm_infra(
             &env,
@@ -591,6 +642,9 @@ impl<'a> HoopsTestEnvironment<'a> {
             &token_b_client,
             &token_c_client,
         );
+        for (i, pool) in phoenix_amm.pool_ids.iter().enumerate() {
+            std::println!("[LOG] Phoenix pool {} deployed at: {:?}", i, pool);
+        }
         std::println!("[SETUP] Phoenix environment ready");
 
         // --- Comet Setup ---
@@ -604,6 +658,10 @@ impl<'a> HoopsTestEnvironment<'a> {
             &token_c_client.address,
             initial_mint_amount,
         );
+        std::println!("[LOG] Comet factory deployed at: {:?}", comet_amm.factory_id);
+        for (i, pool) in comet_amm.pool_ids.iter().enumerate() {
+            std::println!("[LOG] Comet pool {} deployed at: {:?}", i, pool);
+        }
         std::println!("[SETUP] Comet environment ready");
 
         // --- Deploy Adapters ---
@@ -611,12 +669,14 @@ impl<'a> HoopsTestEnvironment<'a> {
         let soroswap_adapter_id = env.register(SOROSWAP_ADAPTER_WASM, ());
         let soroswap_adapter = SoroswapAdapterClient::new(&env, &soroswap_adapter_id);
         soroswap_adapter.initialize(&3, &soroswap_router_id);
+        std::println!("[LOG] Soroswap adapter deployed at: {:?}", soroswap_adapter_id);
         std::println!("[SETUP] Soroswap adapter initialized");
 
         std::println!("[SETUP] Deploying Aqua adapter");
         let aqua_adapter_id = env.register(AQUA_ADAPTER_WASM, ());
         let aqua_adapter = AquaAdapterClient::new(&env, &aqua_adapter_id);
         aqua_adapter.initialize(&0, &aqua_router_id);
+        std::println!("[LOG] Aqua adapter deployed at: {:?}", aqua_adapter_id);
         std::println!("[SETUP] Aqua adapter initialized");
 
         std::println!("[SETUP] Deploying Phoenix adapter");
@@ -627,6 +687,7 @@ impl<'a> HoopsTestEnvironment<'a> {
         } else {
             phoenix_adapter.initialize(&2, &phoenix_factory_id);
         }
+        std::println!("[LOG] Phoenix adapter deployed at: {:?}", phoenix_adapter_id);
         std::println!("[SETUP] Phoenix adapter initialized");
 
         std::println!("[SETUP] Deploying Comet adapter");
@@ -637,6 +698,7 @@ impl<'a> HoopsTestEnvironment<'a> {
         } else {
             comet_adapter.initialize(&1, &comet_amm.factory_id);
         }
+        std::println!("[LOG] Comet adapter deployed at: {:?}", comet_adapter_id);
         std::println!("[SETUP] Comet adapter initialized");
 
         let adapters = AdapterContracts {
@@ -651,9 +713,15 @@ impl<'a> HoopsTestEnvironment<'a> {
         let hoops_router_id = env.register(HOOPS_ROUTER_WASM, ());
         let hoops_router = HoopsRouterClient::new(&env, &hoops_router_id);
         hoops_router.initialize(&admin);
+        std::println!("[LOG] Hoops router deployed at: {:?}", hoops_router_id);
         std::println!("[SETUP] Hoops router initialized");
 
         std::println!("[SETUP] HoopsTestEnvironment setup complete");
+        // --- Print summary report ---
+        print_amm_pools_and_reserves(&env, &soroswap_amm, "Soroswap");
+        print_amm_pools_and_reserves(&env, &aqua_amm, "Aqua");
+        print_amm_pools_and_reserves(&env, &phoenix_amm, "Phoenix");
+        print_amm_pools_and_reserves(&env, &comet_amm, "Comet");
         Self {
             env,
             admin,
