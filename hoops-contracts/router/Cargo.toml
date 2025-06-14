@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 soroban-sdk              = { workspace = true }
 hoops-common             = { path = "../common" }
 hoops-adapter-interface  = { path = "../adapter-interface" }
+aqua_token_share = { path = "../external_contracts/aqua/token_share" }
 
 [dev-dependencies]
 soroban-sdk              = { workspace = true, features = ["testutils"] }

@@ -868,6 +868,7 @@ name = "hoops-router"
 version = "0.1.0"
 dependencies = [
  "aqua_soroban_liquidity_pool_router_contract",
+ "aqua_token_share",
  "hoops-adapter-interface",
  "hoops-common",
  "soroban-sdk",
