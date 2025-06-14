@@ -113,6 +113,7 @@ pub mod phoenix_pool {
 }
 use phoenix_pool::PhoenixPoolClient;
 
+
 pub mod phoenix_pool_stable {
     soroban_sdk::contractimport!(file = "../bytecodes/phoenix_pool_stable.wasm");
     pub type PhoenixPoolStableClient<'a> = Client<'a>;
@@ -336,11 +337,11 @@ pub fn setup_soroswap_environment<'a>(
     initial_mint_amount: i128,
 ) -> (AmmInfrastructure, SoroswapRouterClient<'a>, Address) {
     // --- Soroswap Setup ---
-    // Pool AB: 10:1 ratio (10M A, 1M B)
-    let soroswap_ab_a = 10_000_000_000_000i128;
+    // Pool AB: 7.01:1 ratio (7.01M A, 1M B)
+    let soroswap_ab_a = 7_010_000_000_000i128;
     let soroswap_ab_b = 1_000_000_000_000i128;
-    // Pool BC: 5:1 ratio (5M B, 1M C)
-    let soroswap_bc_b = 5_000_000_000_000i128;
+    // Pool BC: 1.01:1 ratio (1.01M B, 1M C)
+    let soroswap_bc_b = 1_010_000_000_000i128;
     let soroswap_bc_c = 1_000_000_000_000i128;
 
     let soroswap_factory_id = env.register(SOROSWAP_FACTORY_WASM, ());
@@ -361,13 +362,13 @@ pub fn setup_soroswap_environment<'a>(
     soroswap_pool_ids.push_back(pair_ab_address.clone());
     let token_a_client = TokenClient::new(env, token_a);
     let token_b_client = TokenClient::new(env, token_b);
-    token_a_client.approve(user, &soroswap_router.address, &(initial_mint_amount / 2), &200);
-    token_b_client.approve(user, &soroswap_router.address, &(initial_mint_amount / 2), &200);
+    token_a_client.approve(user, &soroswap_router.address, &soroswap_ab_a, &200);
+    token_b_client.approve(user, &soroswap_router.address, &soroswap_ab_b, &200);
     soroswap_router.add_liquidity(
         token_a,
         token_b,
-        &(initial_mint_amount / 10),
-        &(initial_mint_amount / 10),
+        &soroswap_ab_a,
+        &soroswap_ab_b,
         &0,
         &0,
         user,
@@ -379,13 +380,13 @@ pub fn setup_soroswap_environment<'a>(
     let pair_bc_address = soroswap_factory.get_pair(token_b, token_c);
     soroswap_pool_ids.push_back(pair_bc_address.clone());
     let token_c_client = TokenClient::new(env, token_c);
-    token_b_client.approve(user, &soroswap_router.address, &(initial_mint_amount / 2), &200);
-    token_c_client.approve(user, &soroswap_router.address, &(initial_mint_amount / 2), &200);
+    token_b_client.approve(user, &soroswap_router.address, &soroswap_bc_b, &200);
+    token_c_client.approve(user, &soroswap_router.address, &soroswap_bc_c, &200);
     soroswap_router.add_liquidity(
         token_b,
         token_c,
-        &(initial_mint_amount / 10),
-        &(initial_mint_amount / 10),
+        &soroswap_bc_b,
+        &soroswap_bc_c,
         &0,
         &0,
         user,
@@ -420,12 +421,12 @@ pub fn setup_aqua_environment(
     token_c: &Address,
 ) -> (AmmInfrastructure, Address) {
     // --- Aqua Setup ---
-    // Pool AB: 7:1 ratio (7M A, 1M B)
-    let aqua_ab_a = 7_000_000_000_000i128;
+    // Pool AB: 6.999:1 ratio (6.999M A, 1M B)
+    let aqua_ab_a = 6_999_000_000_000i128;
     let aqua_ab_b = 1_000_000_000_000i128;
-    // Pool BC: 3:1 ratio (3M B, 1M C)
-    let aqua_bc_b = 3_000_000_000_000i128;
-    let aqua_bc_c = 1_000_000_000_000i128;
+    // Pool BC: 1:0.999 ratio (1M B, 0.999M C)
+    let aqua_bc_b = 1_000_000_000_000i128;
+    let aqua_bc_c = 999_000_000_000i128;
 
     let aqua_router_id = env.register(AQUA_ROUTER_WASM, ());
     let aqua_router = AquaRouterClient::new(env, &aqua_router_id);
@@ -671,7 +672,26 @@ fn provide_liquidity_phoenix(env: &Env, pool: &Address, user: &Address, token_a:
     let token_b_client = TokenClient::new(env, token_b);
     token_a_client.transfer(user, pool, &amount_a);
     token_b_client.transfer(user, pool, &amount_b);
-    pool_client.provide_liquidity(user, &Some(amount_a), &Some(amount_b), &None, &None, &None, &None::<u64>, &false);
+    // Always pass both amount and min_amount for each token
+    pool_client.provide_liquidity(
+        user,
+        &Some(amount_a),
+        &Some(amount_b),
+        &Some(amount_a),
+        &Some(amount_b),
+        &None,
+        &None::<u64>,
+        &false,
+    );
+}
+
+fn provide_liquidity_phoenix_stable(env: &Env, pool: &Address, user: &Address, token_a: &Address, token_b: &Address, amount_a: i128, amount_b: i128) {
+    let pool_client = PhoenixPoolStableClient::new(env, pool);
+    let token_a_client = TokenClient::new(env, token_a);
+    let token_b_client = TokenClient::new(env, token_b);
+    token_a_client.transfer(user, pool, &amount_a);
+    token_b_client.transfer(user, pool, &amount_b);
+    pool_client.provide_liquidity(user, &amount_a, &amount_b, &None, &None::<u64>, &None::<u128>, &false);
 }
 
 fn provide_liquidity_comet(env: &Env, pool: &Address, user: &Address, token_a: &Address, token_b: &Address, amount_a: i128, amount_b: i128) {
@@ -808,10 +828,20 @@ impl<'a> HoopsTestEnvironment<'a> {
         for (i, pool) in phoenix_amm.pool_ids.iter().enumerate() {
             std::println!("[LOG] Phoenix pool {} deployed at: {:?}", i, pool);
         }
-        std::println!("[Phoenix] Minting {} of token A and {} of token B for Pool AB", 7_000_000_000_000i128, 1_000_000_000_000i128);
-        mint_and_approve(&env, &user, &token_a_client.address, 7_000_000_000_000i128, &phoenix_amm.pool_ids.get(0).unwrap());
-        std::println!("[Phoenix] Minting {} of token B and {} of token C for Pool BC", 3_000_000_000_000i128, 1_000_000_000_000i128);
-        mint_and_approve(&env, &user, &token_b_client.address, 3_000_000_000_000i128, &phoenix_amm.pool_ids.get(1).unwrap());
+        let phoenix_ab_a = 7_000_000_000_000i128;
+        let phoenix_ab_b = 1_000_000_000_000i128;
+        let phoenix_bc_b = 999_000_000_000i128;
+        let phoenix_bc_c = 1_000_000_000_000i128;
+        std::println!("[Phoenix] Minting {} of token A and {} of token B for Pool AB", phoenix_ab_a, phoenix_ab_b);
+        mint_and_approve(&env, &user, &token_a_client.address, phoenix_ab_a, &phoenix_amm.pool_ids.get(0).unwrap());
+        mint_and_approve(&env, &user, &token_b_client.address, phoenix_ab_b, &phoenix_amm.pool_ids.get(0).unwrap());
+        std::println!("[Phoenix] Depositing to Pool AB: {} A, {} B", phoenix_ab_a, phoenix_ab_b);
+        provide_liquidity_phoenix(&env, &phoenix_amm.pool_ids.get(0).unwrap(), &user, &token_a_client.address, &token_b_client.address, phoenix_ab_a, phoenix_ab_b);
+        std::println!("[Phoenix] Minting {} of token B and {} of token C for Pool BC", phoenix_bc_b, phoenix_bc_c);
+        mint_and_approve(&env, &user, &token_b_client.address, phoenix_bc_b, &phoenix_amm.pool_ids.get(1).unwrap());
+        mint_and_approve(&env, &user, &token_c_client.address, phoenix_bc_c, &phoenix_amm.pool_ids.get(1).unwrap());
+        std::println!("[Phoenix] Depositing to Pool BC: {} B, {} C", phoenix_bc_b, phoenix_bc_c);
+        provide_liquidity_phoenix_stable(&env, &phoenix_amm.pool_ids.get(1).unwrap(), &user, &token_b_client.address, &token_c_client.address, phoenix_bc_b, phoenix_bc_c);
         std::println!("[SETUP] Phoenix environment ready");
 
         // --- Comet Setup ---
