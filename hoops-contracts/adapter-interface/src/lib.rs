@@ -48,7 +48,7 @@ pub trait AdapterTrait {
         amt_b: i128,
         to: Address,
         deadline: u64,
-    ) -> Result<Address, AdapterError>;
+    ) -> Result<(i128, i128, i128), AdapterError>;
 
     fn remove_liquidity(
         e: Env,
