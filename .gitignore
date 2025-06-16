@@ -2,4 +2,4 @@
 **/.stellar
 **test_snapshots
 *.env
-
+**/*.old
