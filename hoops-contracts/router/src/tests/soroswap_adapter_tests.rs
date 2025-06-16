@@ -9,6 +9,9 @@ fn test_soroswap_adapter_swap_exact_in() {
     let test_env = HoopsTestEnvironment::setup();
     let env = &test_env.env;
 
+    // Mock all authorizations for this test to bypass require_auth errors
+    env.mock_all_auths();
+
     let user = &test_env.user;
     let token_a_client = token::Client::new(&env, &test_env.tokens.client_a);
     let token_b_client = token::Client::new(&env, &test_env.tokens.client_b);
@@ -34,7 +37,7 @@ fn test_soroswap_adapter_swap_exact_in() {
     // The current setup approves the router for liquidity. For swaps, it also needs approval.
 
     // Re-approve router just in case, or ensure initial approval is enough
-    token_a_client.approve(user, &test_env.soroswap.router_id.clone().unwrap(), &amount_in, &(env.ledger().timestamp() as u32 + 200));
+    token_a_client.approve(&user, &test_env.soroswap.router_id.clone().unwrap(), &amount_in, &(env.ledger().timestamp() as u32 + 200));
 
 
     let initial_user_balance_a = token_a_client.balance(user);

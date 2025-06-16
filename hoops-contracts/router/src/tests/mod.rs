@@ -4,6 +4,6 @@
 pub mod test_setup;
 pub mod soroswap_adapter_tests;
 pub mod setuputils;
-// Add other test modules here e.g.
-// pub mod adapter_tests;
-// pub mod router_tests;
+pub mod aqua_adapter_tests;
+pub mod phoenix_adapter_tests;
+pub mod comet_adapter_tests;
