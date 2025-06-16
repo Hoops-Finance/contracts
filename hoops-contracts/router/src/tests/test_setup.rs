@@ -607,38 +607,40 @@ fn print_amm_pools_and_reserves(env: &Env, amm: &AmmInfrastructure, label: &str,
             let (reserve_0, reserve_1) = pool.get_reserves();
             let lp_token = pool.address;
             let user_lp_balance = TokenClient::new(env, &lp_token).balance(user);
-            std::println!("[REPORT]     Tokens: {:?}, {:?}", token0, token1);
-            std::println!("[REPORT]     Reserves: {:?}, {:?}", reserve_0, reserve_1);
-            std::println!("[REPORT]     LP Token: {:?} User LP Balance: {:?}", lp_token, user_lp_balance);
+            std::println!("[REPORT - Soroswap]     Tokens: {:?}, {:?}", token0, token1);
+            std::println!("[REPORT - Soroswap]     Reserves: {:?}, {:?}", reserve_0, reserve_1);
+            std::println!("[REPORT - Soroswap]     LP Token: {:?} User LP Balance: {:?}", lp_token, user_lp_balance);
         } else if label == "Aqua" {
             let pool = AquaPoolClient::new(env, &pool_addr);
             let lp_token_id = pool.share_id();
             let share_token = ShareTokenClient::new(env, &lp_token_id);
             let tokens = pool.get_tokens();
             let reserves = pool.get_reserves();
-            let lp_token = pool.address;
             let user_lp_balance = share_token.balance(&user);
-            std::println!("[REPORT]     Tokens: {:?}", tokens);
-            std::println!("[REPORT]     Reserves: {:?}", reserves);
-            std::println!("[REPORT]     LP Token: {:?} User LP Balance: {:?}", lp_token, user_lp_balance);
+            std::println!("[REPORT - Aqua]     Tokens: {:?}", tokens);
+            std::println!("[REPORT - Aqua]     Reserves: {:?}", reserves);
+            std::println!("[REPORT - Aqua]     Pool: {:?}  LP Token: {:?} User LP Balance: {:?}", pool.address, lp_token_id, user_lp_balance);
         } else if label == "Phoenix" {
             let pool = PhoenixPoolClient::new(env, &pool_addr);
             let info = pool.query_pool_info();
             let lp_token = info.asset_lp_share.address.clone();
             let user_lp_balance = TokenClient::new(env, &lp_token).balance(user);
-            std::println!("[REPORT]     Pool Info: {:?}", info);
-            std::println!("[REPORT]     Asset A: {:?} amount: {:?}", info.asset_a.address, info.asset_a.amount);
-            std::println!("[REPORT]     Asset B: {:?} amount: {:?}", info.asset_b.address, info.asset_b.amount);
-            std::println!("[REPORT]     LP Share: {:?} amount: {:?}", info.asset_lp_share.address, info.asset_lp_share.amount);
-            std::println!("[REPORT]     User LP Balance: {:?}", user_lp_balance);
+            std::println!("[REPORT - Phoenix]     Pool Info: {:?}", info);
+            std::println!("[REPORT - Phoenix]     Asset A: {:?} amount: {:?}", info.asset_a.address, info.asset_a.amount);
+            std::println!("[REPORT - Phoenix]     Asset B: {:?} amount: {:?}", info.asset_b.address, info.asset_b.amount);
+            std::println!("[REPORT - Phoenix]     LP Share: {:?} amount: {:?}", info.asset_lp_share.address, info.asset_lp_share.amount);
+            std::println!("[REPORT - Phoenix]     User LP Balance: {:?}", user_lp_balance);
         } else if label == "Comet" {
             let pool = CometPoolClient::new(env, &pool_addr);
             let tokens = pool.get_tokens();
-            std::println!("[REPORT]     Tokens: {:?}", tokens);
+            std::println!("[REPORT - Comet]     Tokens: {:?}", tokens);
             for token in tokens.iter() {
                 let bal = pool.get_balance(&token);
-                std::println!("[REPORT]       Balance for token {:?}: {:?}", token, bal);
+                std::println!("[REPORT - Comet]       Balance for token {:?}: {:?}", token, bal);
             }
+            let lp_token = pool.address;
+            let user_lp_balance = TokenClient::new(env, &lp_token).balance(user);
+            std::println!("[REPORT - Comet]     LP Token: {:?} User LP Balance: {:?}", lp_token, user_lp_balance);
         }
     }
 }
@@ -729,8 +731,9 @@ fn get_reserve_aqua(pool: &Address, token: &Address) -> i128 {
 fn get_lp_balance_aqua(pool: &Address, user: &Address) -> i128 {
     let env = pool.env();
     let pool_client = AquaPoolClient::new(&env, pool);
-    let lp_token = pool_client.address;
-    TokenClient::new(&env, &lp_token).balance(user)
+    let lp_token_id = pool_client.share_id();
+    let share_token = ShareTokenClient::new(env, &lp_token_id);
+    share_token.balance(user)
 }
 
 fn get_reserve_phoenix(pool: &Address, token: &Address) -> i128 {
@@ -757,7 +760,7 @@ fn get_balance_comet(pool: &Address, token: &Address) -> i128 {
 fn get_share_balance_comet(pool: &Address, user: &Address) -> i128 {
     let env = pool.env();
     let pool_client = CometPoolClient::new(&env, pool);
-    pool_client.get_balance(user)
+    pool_client.balance(user)
 }
 
 impl<'a> HoopsTestEnvironment<'a> {
@@ -938,11 +941,12 @@ impl<'a> HoopsTestEnvironment<'a> {
     }
 }
 
+/*
 #[test]
 fn test_environment_setup_placeholders() {
     let _test_env = HoopsTestEnvironment::setup();
     
-}
+}*/
 
 #[test]
 fn test_setup_verification() {
@@ -954,15 +958,18 @@ fn test_setup_verification() {
     let token_a = &test_env.tokens.client_a;
     let token_b = &test_env.tokens.client_b;
     let token_c = &test_env.tokens.client_c;
+    std::println!("[TEST] Verifying Soroswap Pool AB reserves and LP balance");
     assert!(get_reserve_soroswap(pair_ab, token_a) > 0);
     assert!(get_reserve_soroswap(pair_ab, token_b) > 0);
     assert!(get_lp_balance_soroswap(pair_ab, user) > 0);
     assert!(get_reserve_soroswap(pair_bc, token_b) > 0);
     assert!(get_reserve_soroswap(pair_bc, token_c) > 0);
     assert!(get_lp_balance_soroswap(pair_bc, user) > 0);
+
     // Aqua
     let pool_ab = &test_env.aqua.pool_ids.get(0).unwrap();
     let pool_bc = &test_env.aqua.pool_ids.get(1).unwrap();
+    std::println!("[TEST] Verifying Aqua Pool AB reserves and LP balance");
     assert!(get_reserve_aqua(pool_ab, token_a) > 0);
     assert!(get_reserve_aqua(pool_ab, token_b) > 0);
     assert!(get_lp_balance_aqua(pool_ab, user) > 0);
@@ -972,6 +979,7 @@ fn test_setup_verification() {
     // Phoenix
     let pho_ab = &test_env.phoenix.pool_ids.get(0).unwrap();
     let pho_bc = &test_env.phoenix.pool_ids.get(1).unwrap();
+    std::println!("[TEST] Verifying Phoenix Pool AB reserves and LP balance");
     assert!(get_reserve_phoenix(pho_ab, token_a) > 0);
     assert!(get_reserve_phoenix(pho_ab, token_b) > 0);
     assert!(get_lp_balance_phoenix(pho_ab, user) > 0);
@@ -981,6 +989,7 @@ fn test_setup_verification() {
     // Comet
     let comet_ab = &test_env.comet.pool_ids.get(0).unwrap();
     let comet_bc = &test_env.comet.pool_ids.get(1).unwrap();
+    std::println!("[TEST] Verifying Comet Pool AB reserves and LP balance");
     assert!(get_balance_comet(comet_ab, token_a) > 0);
     assert!(get_balance_comet(comet_ab, token_b) > 0);
     assert!(get_share_balance_comet(comet_ab, user) > 0);

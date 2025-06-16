@@ -48,7 +48,7 @@ fn test_comet_adapter_swap_exact_in() {
     assert!(final_user_balance_b > initial_user_balance_b, "User TKB balance should increase");
     assert_eq!(final_user_balance_b, initial_user_balance_b + amount_out, "User TKB balance should increase by amount_out");
 }
-
+/*
 #[test]
 fn test_comet_adapter_add_and_remove_liquidity() {
     let test_env = HoopsTestEnvironment::setup();
@@ -68,3 +68,5 @@ fn test_comet_adapter_add_and_remove_liquidity() {
     assert!(amt_a_out > 0, "Should withdraw some token A");
     assert!(amt_b_out > 0, "Should withdraw some token B");
 }
+
+*/

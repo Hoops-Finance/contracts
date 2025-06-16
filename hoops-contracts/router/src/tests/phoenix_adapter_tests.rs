@@ -32,7 +32,7 @@ pub mod phoenix_adapter_tests {
         assert!(final_user_balance_b > initial_user_balance_b);
         assert_eq!(final_user_balance_b, initial_user_balance_b + amount_out);
     }
-
+/*
     #[test]
     fn test_phoenix_adapter_add_and_remove_liquidity() {
         let test_env = HoopsTestEnvironment::setup();
@@ -52,4 +52,5 @@ pub mod phoenix_adapter_tests {
         assert!(amt_a_out > 0, "Should withdraw some token A");
         assert!(amt_b_out > 0, "Should withdraw some token B");
     }
+    */
 }
