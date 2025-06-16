@@ -20,11 +20,11 @@ pub struct SoroswapAdapter;
 #[contractimpl]
 impl AdapterTrait for SoroswapAdapter {
     fn upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), AdapterError> {
-    // setup the config to get the admin address. set it during initialization.
-    let config = get_core_config(&e);
-    config.admin.require_auth();
-    Ok(e.deployer().update_current_contract_wasm(new_wasm_hash))
-}
+        // setup the config to get the admin address. set it during initialization.
+        let config = get_core_config(&e);
+        config.admin.require_auth();
+        Ok(e.deployer().update_current_contract_wasm(new_wasm_hash))
+    }
 
     fn version() -> u32 {
         1 // Version 1 of the Soroswap adapter
@@ -42,7 +42,7 @@ impl AdapterTrait for SoroswapAdapter {
         set_amm(&e, amm_addr.clone());
         mark_init(&e);
         bump(&e);
-        // what is this init supposed to do i forgot. and it's not definied.
+        
         init(&e, amm_addr);
         Ok(())
     }
@@ -56,26 +56,32 @@ impl AdapterTrait for SoroswapAdapter {
         to: Address,
         deadline: u64,
     ) -> Result<i128, AdapterError> {
+        to.require_auth();
         if !is_init(&e) {
             return Err(AdapterError::ExternalFailure);
         }
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
         }
-
         // Call external router
         let router = SoroswapRouterClient::new(&e, &get_amm(&e)?);
         let amounts = router
             .swap_exact_tokens_for_tokens(&amt_in, &min_out, &path, &to, &deadline);
-            // i don't know what this is supposed to be?  the error would get returned in the swap function not here right?  .map_err(|_| AdapterError::ExternalFailure)?;
 
         // Extract the final output amount (last element in the amounts vector)
         let amt_out = amounts
             .get(amounts.len() - 1)
             .ok_or(AdapterError::ExternalFailure)?;
 
-        // this function isn't defined yet.
-        swap( &e, SwapEvent {amt_in, amt_out, path, to,});
+        swap(
+            &e,
+            SwapEvent {
+                amt_in,
+                amt_out,
+                path,
+                to,
+            },
+        );
         bump(&e);
         Ok(amt_out)
     }
@@ -88,6 +94,7 @@ impl AdapterTrait for SoroswapAdapter {
         to: Address,
         deadline: u64,
     ) -> Result<i128, AdapterError> {
+        to.require_auth();
         if !is_init(&e) {
             return Err(AdapterError::ExternalFailure);
         }
@@ -99,8 +106,6 @@ impl AdapterTrait for SoroswapAdapter {
         let router = SoroswapRouterClient::new(&e, &get_amm(&e)?);
         let amounts = router
             .swap_tokens_for_exact_tokens(&out, &max_in, &path, &to, &deadline);
-            // same issue i don't kno wwhat this is supposed to do it doesn't work.
-            //.map_err(|_| AdapterError::ExternalFailure)?;
 
         // Extract the input amount (first element in the amounts vector)
         let amt_in = amounts.get(0).ok_or(AdapterError::ExternalFailure)?;
@@ -128,7 +133,8 @@ impl AdapterTrait for SoroswapAdapter {
         amt_b: i128,
         to: Address,
         deadline: u64,
-    ) -> Result<Address, AdapterError> {
+    ) -> Result<(i128, i128, i128), AdapterError> {
+        to.require_auth();
         if !is_init(&e) {
             return Err(AdapterError::ExternalFailure);
         }
@@ -136,21 +142,16 @@ impl AdapterTrait for SoroswapAdapter {
             return Err(AdapterError::ExternalFailure);
         }
 
-        // Call external router
+        // Call external router to add liquidity
         let router = SoroswapRouterClient::new(&e, &get_amm(&e)?);
-        let (_amount_a, _amount_b, _liquidity) = router
+        let (amount_a, amount_b, liquidity) = router
             .add_liquidity(&a, &b, &amt_a, &amt_b, &0, &0, &to, &deadline);
-            // and a third time the same thing is broken
-            // .map_err(|_| AdapterError::ExternalFailure)?;
 
-        // Get the LP token address by querying the factory
-        // For now, we'll return the target address as a placeholder for the LP token
-        // In a real implementation, you'd query the factory to get the actual pair address
-        let lp_token = to.clone(); // This should be replaced with actual pair address lookup
-
+        // Return the actual pair address as the LP token address
         bump(&e);
-        Ok(lp_token)
+        Ok((amount_a, amount_b, liquidity))
     }
+
     #[allow(unused_variables)]
     fn remove_liquidity(
         e: Env,
@@ -159,6 +160,7 @@ impl AdapterTrait for SoroswapAdapter {
         to: Address,
         deadline: u64,
     ) -> Result<(i128, i128), AdapterError> {
+        to.require_auth();
         if !is_init(&e) {
             return Err(AdapterError::ExternalFailure);
         }
@@ -175,8 +177,6 @@ impl AdapterTrait for SoroswapAdapter {
         let router = SoroswapRouterClient::new(&e, &get_amm(&e)?);
         let (amt_a, amt_b) = router
             .remove_liquidity(&token_a, &token_b, &lp_amt, &0, &0, &to, &deadline);
-            // and again the 4th timem.
-            // .map_err(|_| AdapterError::ExternalFailure)?;
 
         bump(&e);
         Ok((amt_a, amt_b))

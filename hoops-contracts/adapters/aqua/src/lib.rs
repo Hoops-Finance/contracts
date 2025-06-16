@@ -124,7 +124,7 @@ impl AdapterTrait for AquaAdapter {
     fn add_liquidity(
         e: Env, a: Address, b: Address, amt_a: i128, amt_b: i128,
         to: Address, deadline: u64
-    ) -> Result<Address, AdapterError> {
+    ) -> Result<(i128, i128, i128), AdapterError> {
         if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp()>deadline{
             return Err(AdapterError::ExternalFailure); }
@@ -145,20 +145,19 @@ impl AdapterTrait for AquaAdapter {
         let pool_index = BytesN::from_array(&e, &[0; 32]); // Default pool index
         let min_shares = 1u128; // Minimum shares to accept
         
-        let (_amounts, _shares) = router.deposit(
+        let (amounts, shares) = router.deposit(
             &to,
             &tokens,
             &pool_index,
             &desired_amounts,
             &min_shares
         );
-// THIS DOES NOT WORK DONT KNOW WTF YOURE TRYING TO DO LEARN HOW ERROR HANDLING WORKS DUMB FUCK AI!!!!
-//.map_err(|_| AdapterError::ExternalFailure)?;
-        
-        // Return the pool address (would need to get from router or factory)
-        let lp_token = to.clone(); // Placeholder - need actual pool address
+        let amount_a = amounts.get(0).unwrap() as i128;
+        let amount_b = amounts.get(1).unwrap() as i128;
+        let shares_i128 = shares as i128;
+
         bump(&e);
-        Ok(lp_token)
+        Ok((amount_a, amount_b, shares_i128))
     }
 #[allow(unused_variables)]
     fn remove_liquidity(

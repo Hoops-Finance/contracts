@@ -106,7 +106,7 @@ impl AdapterTrait for PhoenixAdapter {
     fn add_liquidity(
         e: Env, _a: Address, _b: Address, amt_a: i128, amt_b: i128,
         to: Address, deadline: u64
-    ) -> Result<Address, AdapterError> {
+    ) -> Result<(i128,i128,i128), AdapterError> {
         if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp()>deadline{
             return Err(AdapterError::ExternalFailure); }
@@ -123,7 +123,8 @@ impl AdapterTrait for PhoenixAdapter {
             &false // auto_stake
         );
         bump(&e);
-        Ok(to)
+        // placeholder because we need actual amount_a, amount_b and lp_minted_amount
+        Ok((amt_a, amt_b, 0))
     }
 
     fn remove_liquidity(

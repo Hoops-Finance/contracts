@@ -120,7 +120,7 @@ impl AdapterTrait for CometAdapter {
         amt_b: i128,
         to: Address, 
         deadline: u64
-    ) -> Result<Address, AdapterError> {
+    ) -> Result<(i128, i128, i128), AdapterError> {
         if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure); 
@@ -139,11 +139,10 @@ impl AdapterTrait for CometAdapter {
             &max_amounts,
             &to
         );
-// THIS DOES NOT I'm not sure what you're trying to do but it needs fixed.
-//.map_err(|_| AdapterError::ExternalFailure)?;
         
         bump(&e);
-        Ok(get_amm(&e)?) // Return pool address as LP token address
+        //placeholder should return amount_a, amount_b, lp_token_shares_minted
+        Ok((amt_a, amt_b, pool_amount_out))
     }
 #[allow(unused_variables)]
     fn remove_liquidity(
