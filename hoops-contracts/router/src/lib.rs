@@ -94,6 +94,7 @@ impl RouterTrait for Router {
         deadline: u64,
     ) -> Result<i128, RouterError> {
         let adapter = Self::adapter_addr(&e, adapter_id)?;
+        to.require_auth();
         match AdapterClient::new(&e, &adapter).try_swap_exact_in(
             &amount_in, &min_out, &path, &to, &deadline) {
             Ok(amount_out) => Ok(amount_out.unwrap()),
