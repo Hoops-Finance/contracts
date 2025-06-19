@@ -32,6 +32,36 @@ pub mod phoenix_adapter_tests {
         assert!(final_user_balance_b > initial_user_balance_b);
         assert_eq!(final_user_balance_b, initial_user_balance_b + amount_out);
     }
+
+    #[test]
+    fn test_phoenix_adapter_swap_exact_out() {
+        let test_env = HoopsTestEnvironment::setup();
+        let env = &test_env.env;
+        env.mock_all_auths();
+        let user = &test_env.user;
+        let token_a_client = token::Client::new(&env, &test_env.tokens.client_a);
+        let token_b_client = token::Client::new(&env, &test_env.tokens.client_b);
+        let phoenix_adapter_client = &test_env.adapters.phoenix;
+        let desired_out: i128 = 500_000;
+        let max_in: i128 = 2_000_000;
+        let deadline = env.ledger().timestamp() + 100;
+        let path = vec![env, token_a_client.address.clone(), token_b_client.address.clone()];
+        token_a_client.approve(user, &test_env.phoenix.pool_ids.get(0).unwrap(), &max_in, &(env.ledger().timestamp() as u32 + 200));
+        let initial_user_balance_a = token_a_client.balance(user);
+        let initial_user_balance_b = token_b_client.balance(user);
+        let amount_in_used = phoenix_adapter_client.swap_exact_out(
+            &desired_out,
+            &max_in,
+            &path,
+            user,
+            &deadline,
+        );
+        assert!(amount_in_used <= max_in, "Amount in used should not exceed max_in");
+        let final_user_balance_a = token_a_client.balance(user);
+        let final_user_balance_b = token_b_client.balance(user);
+        assert_eq!(final_user_balance_a, initial_user_balance_a - amount_in_used);
+        assert_eq!(final_user_balance_b, initial_user_balance_b + desired_out);
+    }
 /*
     #[test]
     fn test_phoenix_adapter_add_and_remove_liquidity() {
