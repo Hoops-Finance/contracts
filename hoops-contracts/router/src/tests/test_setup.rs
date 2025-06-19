@@ -901,6 +901,14 @@ impl<'a> HoopsTestEnvironment<'a> {
         std::println!("[LOG] Comet adapter deployed at: {:?}", comet_adapter_id);
         std::println!("[SETUP] Comet adapter initialized");
 
+        // Register all Comet pools with the adapter
+        for pool_addr in comet_amm.pool_ids.iter() {
+            let pool_client = CometPoolClient::new(&env, &pool_addr);
+            let tokens = pool_client.get_tokens();
+            comet_adapter.set_pool_for_tokens(&tokens, &pool_addr);
+            std::println!("[SETUP] Registered Comet pool {:?} for tokens {:?}", pool_addr, tokens);
+        }
+
         let adapters = AdapterContracts {
             soroswap: soroswap_adapter,
             aqua: aqua_adapter,

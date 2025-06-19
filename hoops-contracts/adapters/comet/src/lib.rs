@@ -16,13 +16,20 @@ const PROTOCOL_ID: i128 = 1;
 #[contract]
 pub struct CometAdapter;
 
-impl CometAdapter {
+pub trait CometAdapterTrait {
     /// Register a pool for a set of tokens (sorted for canonicalization)
-    pub fn set_pool_for_tokens(e: Env, tokens: Vec<Address>, pool: Address) {
+    fn set_pool_for_tokens(e: Env, tokens: Vec<Address>, pool: Address);
+    /// Get a pool for a set of tokens (sorted for canonicalization)
+    fn get_pool_for_tokens(e: Env, tokens: Vec<Address>) -> Option<Address>;
+}
+#[contractimpl]
+impl CometAdapterTrait for CometAdapter {
+    /// Register a pool for a set of tokens (sorted for canonicalization)
+    fn set_pool_for_tokens(e: Env, tokens: Vec<Address>, pool: Address) {
         set_pool_for_tokens(&e, &tokens, &pool);
     }
     /// Get a pool for a set of tokens (sorted for canonicalization)
-    pub fn get_pool_for_tokens(e: Env, tokens: Vec<Address>) -> Option<Address> {
+    fn get_pool_for_tokens(e: Env, tokens: Vec<Address>) -> Option<Address> {
         get_pool_for_tokens(&e, &tokens)
     }
 }
