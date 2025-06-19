@@ -122,29 +122,32 @@ impl AdapterTrait for AquaAdapter {
 
     /* ---------- liquidity ---------- */
     fn add_liquidity(
-        e: Env, a: Address, b: Address, amt_a: i128, amt_b: i128,
-        to: Address, deadline: u64
+        e: Env,
+        a: Address,
+        b: Address,
+        amt_a: i128,
+        amt_b: i128,
+        amt_a_min: i128,
+        amt_b_min: i128,
+        to: Address,
+        deadline: u64
     ) -> Result<(i128, i128, i128), AdapterError> {
-        if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
-        if e.ledger().timestamp()>deadline{
-            return Err(AdapterError::ExternalFailure); }
-            
-        // Call external router with Aqua's deposit method
+        if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
+        if e.ledger().timestamp() > deadline {
+            return Err(AdapterError::ExternalFailure);
+        }
         let router = protocol::AquaRouterClient::new(&e, &get_amm(&e)?);
-        
-        // Create tokens vector for pool
         let mut tokens = Vec::new(&e);
         tokens.push_back(a.clone());
         tokens.push_back(b.clone());
-        
-        // Create desired amounts vector
         let mut desired_amounts = Vec::new(&e);
         desired_amounts.push_back(amt_a as u128);
         desired_amounts.push_back(amt_b as u128);
-        
-        let pool_index = BytesN::from_array(&e, &[0; 32]); // Default pool index
+        let mut min_amounts = Vec::new(&e);
+        min_amounts.push_back(amt_a_min as u128);
+        min_amounts.push_back(amt_b_min as u128);
+        let pool_index = BytesN::from_array(&e, &[0; 32]);
         let min_shares = 1u128; // Minimum shares to accept
-        
         let (amounts, shares) = router.deposit(
             &to,
             &tokens,
@@ -155,30 +158,30 @@ impl AdapterTrait for AquaAdapter {
         let amount_a = amounts.get(0).unwrap() as i128;
         let amount_b = amounts.get(1).unwrap() as i128;
         let shares_i128 = shares as i128;
-
         bump(&e);
         Ok((amount_a, amount_b, shares_i128))
     }
 #[allow(unused_variables)]
     fn remove_liquidity(
-        e: Env, lp: Address, lp_amt: i128, to: Address, deadline: u64
-    ) -> Result<(i128,i128), AdapterError> {
-        if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
-        if e.ledger().timestamp()>deadline{
-            return Err(AdapterError::ExternalFailure); }
-            
-        // Call external router with Aqua's withdraw method
+        e: Env,
+        lp: Address,
+        lp_amt: i128,
+        amt_a_min: i128,
+        amt_b_min: i128,
+        to: Address,
+        deadline: u64
+    ) -> Result<(i128, i128), AdapterError> {
+        if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
+        if e.ledger().timestamp() > deadline {
+            return Err(AdapterError::ExternalFailure);
+        }
         let router = protocol::AquaRouterClient::new(&e, &get_amm(&e)?);
-        
-        // For Aqua, we need to get the underlying tokens from the pool
-        // This is a placeholder implementation - actual implementation would need
-        // to query the pool for its underlying tokens
         let tokens = Vec::new(&e);
         // Would need to get actual tokens from pool contract
-        
-        let pool_index = BytesN::from_array(&e, &[0; 32]); // Default pool index
-        let min_amounts = Vec::new(&e); // Minimum amounts to receive
-        
+        let pool_index = BytesN::from_array(&e, &[0; 32]);
+        let mut min_amounts = Vec::new(&e);
+        min_amounts.push_back(amt_a_min as u128);
+        min_amounts.push_back(amt_b_min as u128);
         let amounts = router.withdraw(
             &to,
             &tokens,
@@ -186,12 +189,8 @@ impl AdapterTrait for AquaAdapter {
             &(lp_amt as u128),
             &min_amounts
         );
-// THIS DOES NOT WORK DONT KNOW WTF YOURE TRYING TO DO LEARN HOW ERROR HANDLING WORKS DUMB FUCK AI!!!!
-//.map_err(|_| AdapterError::ExternalFailure)?;
-        
         let amt_a = if amounts.len() > 0 { amounts.get(0).unwrap() as i128 } else { 0 };
         let amt_b = if amounts.len() > 1 { amounts.get(1).unwrap() as i128 } else { 0 };
-        
         bump(&e);
         Ok((amt_a, amt_b))
     }

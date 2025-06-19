@@ -104,43 +104,54 @@ impl AdapterTrait for PhoenixAdapter {
 
     /* ---------- liquidity ---------- */
     fn add_liquidity(
-        e: Env, _a: Address, _b: Address, amt_a: i128, amt_b: i128,
-        to: Address, deadline: u64
-    ) -> Result<(i128,i128,i128), AdapterError> {
-        if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
-        if e.ledger().timestamp()>deadline{
-            return Err(AdapterError::ExternalFailure); }
+        e: Env,
+        _a: Address,
+        _b: Address,
+        amt_a: i128,
+        amt_b: i128,
+        amt_a_min: i128,
+        amt_b_min: i128,
+        to: Address,
+        deadline: u64
+    ) -> Result<(i128, i128, i128), AdapterError> {
+        if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
+        if e.ledger().timestamp() > deadline {
+            return Err(AdapterError::ExternalFailure);
+        }
         let pool = PhoenixPoolClient::new(&e, &get_amm(&e)?);
-        // For now, require both tokens > 0. One-sided logic can be added later.
         pool.provide_liquidity(
             &to, // sender
             &Some(amt_a),
-            &Some(amt_a), // min_a
+            &Some(amt_a_min), // min_a
             &Some(amt_b),
-            &Some(amt_b), // min_b
+            &Some(amt_b_min), // min_b
             &None, // custom_slippage_bps
             &Some(deadline),
             &false // auto_stake
         );
         bump(&e);
-        // placeholder because we need actual amount_a, amount_b and lp_minted_amount
-        Ok((amt_a, amt_b, 0))
+        Ok((amt_a, amt_b, 0)) // placeholder for lp_minted_amount
     }
 
     fn remove_liquidity(
-        e: Env, _lp: Address, lp_amt: i128, to: Address, deadline: u64
-    ) -> Result<(i128,i128), AdapterError> {
-        if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
-        if e.ledger().timestamp()>deadline{
-            return Err(AdapterError::ExternalFailure); }
-
-            // why do we need the lp address here? and how are we dealing with auth?
+        e: Env,
+        _lp: Address,
+        lp_amt: i128,
+        amt_a_min: i128,
+        amt_b_min: i128,
+        to: Address,
+        deadline: u64
+    ) -> Result<(i128, i128), AdapterError> {
+        if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
+        if e.ledger().timestamp() > deadline {
+            return Err(AdapterError::ExternalFailure);
+        }
         let pool = PhoenixPoolClient::new(&e, &get_amm(&e)?);
         let (amt_a, amt_b) = pool.withdraw_liquidity(
             &to, // sender
             &lp_amt,
-            &0, // min_a
-            &0, // min_b
+            &amt_a_min, // min_a
+            &amt_b_min, // min_b
             &Some(deadline),
             &None // auto_unstake
         );

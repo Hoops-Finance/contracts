@@ -113,69 +113,67 @@ impl AdapterTrait for CometAdapter {
     /* ---------- liquidity ---------- */
     #[allow(unused_variables)]
     fn add_liquidity(
-        e: Env, 
-        token_a: Address, 
-        token_b: Address, 
-        amt_a: i128, 
+        e: Env,
+        token_a: Address,
+        token_b: Address,
+        amt_a: i128,
         amt_b: i128,
-        to: Address, 
+        amt_a_min: i128,
+        amt_b_min: i128,
+        to: Address,
         deadline: u64
     ) -> Result<(i128, i128, i128), AdapterError> {
-        if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
+        if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp() > deadline {
-            return Err(AdapterError::ExternalFailure); 
+            return Err(AdapterError::ExternalFailure);
         }
-        
+
         let pool = CometPoolClient::new(&e, &get_amm(&e)?);
-        // For Comet pools, we need to calculate the amount of LP tokens to get
-        // and provide maximum amounts for both tokens
+        // Use min amounts for slippage protection
         let max_amounts = Vec::from_array(&e, [amt_a, amt_b]);
-        // Calculate approximate LP tokens to mint based on pool ratio
-        // For simplicity, we'll use a fixed amount - in production this should be calculated
-        let pool_amount_out = amt_a.min(amt_b); // Simplified calculation
-        
+        let min_amounts = Vec::from_array(&e, [amt_a_min, amt_b_min]);
+        // Calculate LP tokens to mint (simplified, should be based on pool state)
+        let pool_amount_out = amt_a.min(amt_b); // Placeholder logic
+
+        // In a real implementation, join_pool should use min_amounts for slippage checks
         pool.join_pool(
             &pool_amount_out,
             &max_amounts,
             &to
         );
-        
+
         bump(&e);
-        //placeholder should return amount_a, amount_b, lp_token_shares_minted
         Ok((amt_a, amt_b, pool_amount_out))
     }
 #[allow(unused_variables)]
     fn remove_liquidity(
-        e: Env, 
-        lp_token: Address, 
-        lp_amount: i128, 
-        to: Address, 
+        e: Env,
+        lp_token: Address,
+        lp_amount: i128,
+        amt_a_min: i128,
+        amt_b_min: i128,
+        to: Address,
         deadline: u64
-    ) -> Result<(i128,i128), AdapterError> {
-        if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
+    ) -> Result<(i128, i128), AdapterError> {
+        if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp() > deadline {
-            return Err(AdapterError::ExternalFailure); 
+            return Err(AdapterError::ExternalFailure);
         }
-        
+
         let pool = CometPoolClient::new(&e, &get_amm(&e)?);
-        // Get the tokens in the pool to set minimum amounts
-        let min_amounts_out = Vec::from_array(&e, [0i128, 0i128]); // Accept any amount
-        
-        // Execute exit_pool to remove liquidity
+        // Use min amounts for slippage protection
+        let min_amounts_out = Vec::from_array(&e, [amt_a_min, amt_b_min]);
+
         pool.exit_pool(
             &lp_amount,
             &min_amounts_out,
             &to
         );
-// THIS DOES NOT I'm not sure what you're trying to do but it needs fixed.
-//.map_err(|_| AdapterError::ExternalFailure)?;
-        
-        // For this adapter interface, we need to return the amounts of the two tokens withdrawn
-        // Since Comet's exit_pool doesn't return the amounts, we'll need to calculate or estimate
-        // For now, return simplified amounts (in production, this should track actual withdrawals)
-        let amt_a = lp_amount / 2; // Simplified - assume equal value split
+
+        // In a real implementation, should return actual withdrawn amounts
+        let amt_a = lp_amount / 2; // Placeholder
         let amt_b = lp_amount / 2;
-        
+
         bump(&e);
         Ok((amt_a, amt_b))
     }

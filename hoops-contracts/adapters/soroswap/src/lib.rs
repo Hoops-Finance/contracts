@@ -131,6 +131,8 @@ impl AdapterTrait for SoroswapAdapter {
         b: Address,
         amt_a: i128,
         amt_b: i128,
+        amt_a_min: i128,
+        amt_b_min: i128,
         to: Address,
         deadline: u64,
     ) -> Result<(i128, i128, i128), AdapterError> {
@@ -141,13 +143,10 @@ impl AdapterTrait for SoroswapAdapter {
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
         }
-
         // Call external router to add liquidity
         let router = SoroswapRouterClient::new(&e, &get_amm(&e)?);
         let (amount_a, amount_b, liquidity) = router
-            .add_liquidity(&a, &b, &amt_a, &amt_b, &0, &0, &to, &deadline);
-
-        // Return the actual pair address as the LP token address
+            .add_liquidity(&a, &b, &amt_a, &amt_b, &amt_a_min, &amt_b_min, &to, &deadline);
         bump(&e);
         Ok((amount_a, amount_b, liquidity))
     }
@@ -157,6 +156,8 @@ impl AdapterTrait for SoroswapAdapter {
         e: Env,
         lp: Address,
         lp_amt: i128,
+        amt_a_min: i128,
+        amt_b_min: i128,
         to: Address,
         deadline: u64,
     ) -> Result<(i128, i128), AdapterError> {
@@ -167,17 +168,14 @@ impl AdapterTrait for SoroswapAdapter {
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
         }
-
         // Get the underlying tokens from the LP token (pair contract)
         let pair_client = SoroswapPairClient::new(&e, &lp);
         let token_a = pair_client.token_0();
         let token_b = pair_client.token_1();
-
         // Call external router
         let router = SoroswapRouterClient::new(&e, &get_amm(&e)?);
         let (amt_a, amt_b) = router
-            .remove_liquidity(&token_a, &token_b, &lp_amt, &0, &0, &to, &deadline);
-
+            .remove_liquidity(&token_a, &token_b, &lp_amt, &amt_a_min, &amt_b_min, &to, &deadline);
         bump(&e);
         Ok((amt_a, amt_b))
     }
