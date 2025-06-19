@@ -2,9 +2,15 @@
 #![cfg(test)]
 use soroban_sdk::token;
 #[allow(unused_imports)]
-use soroban_sdk::{Env, vec};
+use soroban_sdk::{Env, vec, Address, Vec};
 use crate::tests::test_setup::HoopsTestEnvironment;
+use crate::tests::test_setup::comet_adapter::Client as CometAdapterClient;
+use crate::tests::test_setup;
 extern crate std;
+
+pub fn register_comet_pool(adapter: &CometAdapterClient, tokens: Vec<Address>, pool: Address) {
+    adapter.set_pool_for_tokens(&tokens, &pool);
+}
 
 pub fn run_swap_exact_in(test_env: &HoopsTestEnvironment) {
     let env = &test_env.env;
@@ -17,7 +23,10 @@ pub fn run_swap_exact_in(test_env: &HoopsTestEnvironment) {
     let amount_out_min: i128 = 0;
     let deadline = env.ledger().timestamp() + 100;
     let path = vec![env, token_a_client.address.clone(), token_b_client.address.clone()];
-    token_a_client.approve(&user, &test_env.comet.pool_ids.get(0).unwrap(), &amount_in, &(env.ledger().timestamp() as u32 + 200));
+    // Register pool for this token set
+    let pool = test_env.comet.pool_ids.get(0).unwrap();
+    register_comet_pool(comet_adapter_client, path.clone(), pool.clone());
+    token_a_client.approve(&user, &pool, &amount_in, &(env.ledger().timestamp() as u32 + 200));
     let initial_user_balance_a = token_a_client.balance(user);
     let initial_user_balance_b = token_b_client.balance(user);
     std::println!("[COMET][swap_exact_in] Initial user balances: TKA = {}, TKB = {}", initial_user_balance_a, initial_user_balance_b);

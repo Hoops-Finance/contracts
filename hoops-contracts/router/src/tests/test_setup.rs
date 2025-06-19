@@ -1000,25 +1000,63 @@ fn test_setup_verification() {
 
 #[test]
 fn test_all_adapters_all_functions() {
+    use std::panic::AssertUnwindSafe;
+    
     let test_env = HoopsTestEnvironment::setup();
+    let mut failures = 0;
     // Soroswap
-    crate::tests::soroswap_adapter_tests::run_swap_exact_in(&test_env);
-    crate::tests::soroswap_adapter_tests::run_swap_exact_out(&test_env);
-    crate::tests::soroswap_adapter_tests::run_add_liquidity(&test_env);
-    crate::tests::soroswap_adapter_tests::run_remove_liquidity(&test_env);
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_swap_exact_in(&test_env))) {
+        std::println!("[FAIL][SOROSWAP][swap_exact_in]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_swap_exact_out(&test_env))) {
+        std::println!("[FAIL][SOROSWAP][swap_exact_out]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_add_liquidity(&test_env))) {
+        std::println!("[FAIL][SOROSWAP][add_liquidity]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_remove_liquidity(&test_env))) {
+        std::println!("[FAIL][SOROSWAP][remove_liquidity]: {:?}", e); failures += 1;
+    }
     // Comet
-    crate::tests::comet_adapter_tests::run_swap_exact_in(&test_env);
-    crate::tests::comet_adapter_tests::run_swap_exact_out(&test_env);
-    crate::tests::comet_adapter_tests::run_add_liquidity(&test_env);
-    crate::tests::comet_adapter_tests::run_remove_liquidity(&test_env);
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_swap_exact_in(&test_env))) {
+        std::println!("[FAIL][COMET][swap_exact_in]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_swap_exact_out(&test_env))) {
+        std::println!("[FAIL][COMET][swap_exact_out]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_add_liquidity(&test_env))) {
+        std::println!("[FAIL][COMET][add_liquidity]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_remove_liquidity(&test_env))) {
+        std::println!("[FAIL][COMET][remove_liquidity]: {:?}", e); failures += 1;
+    }
     // Aqua
-    crate::tests::aqua_adapter_tests::run_swap_exact_in(&test_env);
-    crate::tests::aqua_adapter_tests::run_swap_exact_out(&test_env);
-    crate::tests::aqua_adapter_tests::run_add_liquidity(&test_env);
-    crate::tests::aqua_adapter_tests::run_remove_liquidity(&test_env);
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::aqua_adapter_tests::run_swap_exact_in(&test_env))) {
+        std::println!("[FAIL][AQUA][swap_exact_in]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::aqua_adapter_tests::run_swap_exact_out(&test_env))) {
+        std::println!("[FAIL][AQUA][swap_exact_out]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::aqua_adapter_tests::run_add_liquidity(&test_env))) {
+        std::println!("[FAIL][AQUA][add_liquidity]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::aqua_adapter_tests::run_remove_liquidity(&test_env))) {
+        std::println!("[FAIL][AQUA][remove_liquidity]: {:?}", e); failures += 1;
+    }
     // Phoenix
-    crate::tests::phoenix_adapter_tests::run_swap_exact_in(&test_env);
-    crate::tests::phoenix_adapter_tests::run_swap_exact_out(&test_env);
-    crate::tests::phoenix_adapter_tests::run_add_liquidity(&test_env);
-    crate::tests::phoenix_adapter_tests::run_remove_liquidity(&test_env);
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_swap_exact_in(&test_env))) {
+        std::println!("[FAIL][PHOENIX][swap_exact_in]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_swap_exact_out(&test_env))) {
+        std::println!("[FAIL][PHOENIX][swap_exact_out]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_add_liquidity(&test_env))) {
+        std::println!("[FAIL][PHOENIX][add_liquidity]: {:?}", e); failures += 1;
+    }
+    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_remove_liquidity(&test_env))) {
+        std::println!("[FAIL][PHOENIX][remove_liquidity]: {:?}", e); failures += 1;
+    }
+    if failures > 0 {
+        panic!("{} adapter subtests failed. See log for details.", failures);
+    }
 }
