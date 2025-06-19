@@ -47,7 +47,7 @@ impl AdapterTrait for AquaAdapter {
         to: Address,
         deadline: u64
     ) -> Result<i128, AdapterError> {
-
+        to.require_auth();
         if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp()>deadline{
             return Err(AdapterError::ExternalFailure);
@@ -86,6 +86,7 @@ impl AdapterTrait for AquaAdapter {
         e: Env, out: i128, max_in: i128, path: Vec<Address>,
         to: Address, deadline: u64
     ) -> Result<i128, AdapterError> {
+        to.require_auth();
         if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp()>deadline{
             return Err(AdapterError::ExternalFailure);
@@ -132,6 +133,7 @@ impl AdapterTrait for AquaAdapter {
         to: Address,
         deadline: u64
     ) -> Result<(i128, i128, i128), AdapterError> {
+        to.require_auth();
         if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
@@ -171,6 +173,7 @@ impl AdapterTrait for AquaAdapter {
         to: Address,
         deadline: u64
     ) -> Result<(i128, i128), AdapterError> {
+        to.require_auth();
         if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);

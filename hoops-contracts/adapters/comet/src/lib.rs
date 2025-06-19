@@ -51,7 +51,7 @@ impl AdapterTrait for CometAdapter {
         to: Address,
         deadline: u64
     ) -> Result<i128, AdapterError> {
-
+        to.require_auth();
         if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
@@ -70,8 +70,6 @@ impl AdapterTrait for CometAdapter {
             &i128::MAX, // max_price
             &to
         );
-// THIS DOES NOT I'm not sure what you're trying to do but it needs fixed.
-//.map_err(|_| AdapterError::ExternalFailure)?;
         
         bump(&e);
         Ok(amt_out)
@@ -85,6 +83,7 @@ impl AdapterTrait for CometAdapter {
         to: Address, 
         deadline: u64
     ) -> Result<i128, AdapterError> {
+        to.require_auth();
         if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
@@ -103,8 +102,6 @@ impl AdapterTrait for CometAdapter {
             &i128::MAX, // max_price
             &to
         );
-// THIS DOES NOT I'm not sure what you're trying to do but it needs fixed.
-//.map_err(|_| AdapterError::ExternalFailure)?;
         
         bump(&e);
         Ok(amt_in)
@@ -123,6 +120,7 @@ impl AdapterTrait for CometAdapter {
         to: Address,
         deadline: u64
     ) -> Result<(i128, i128, i128), AdapterError> {
+        to.require_auth();
         if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
@@ -155,6 +153,7 @@ impl AdapterTrait for CometAdapter {
         to: Address,
         deadline: u64
     ) -> Result<(i128, i128), AdapterError> {
+        to.require_auth();
         if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
