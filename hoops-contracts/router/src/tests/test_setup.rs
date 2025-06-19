@@ -997,3 +997,28 @@ fn test_setup_verification() {
     assert!(get_balance_comet(comet_bc, token_c) > 0);
     assert!(get_share_balance_comet(comet_bc, user) > 0);
 }
+
+#[test]
+fn test_all_adapters_all_functions() {
+    let test_env = HoopsTestEnvironment::setup();
+    // Soroswap
+    crate::tests::soroswap_adapter_tests::run_swap_exact_in(&test_env);
+    crate::tests::soroswap_adapter_tests::run_swap_exact_out(&test_env);
+    crate::tests::soroswap_adapter_tests::run_add_liquidity(&test_env);
+    crate::tests::soroswap_adapter_tests::run_remove_liquidity(&test_env);
+    // Comet
+    crate::tests::comet_adapter_tests::run_swap_exact_in(&test_env);
+    crate::tests::comet_adapter_tests::run_swap_exact_out(&test_env);
+    crate::tests::comet_adapter_tests::run_add_liquidity(&test_env);
+    crate::tests::comet_adapter_tests::run_remove_liquidity(&test_env);
+    // Aqua
+    crate::tests::aqua_adapter_tests::run_swap_exact_in(&test_env);
+    crate::tests::aqua_adapter_tests::run_swap_exact_out(&test_env);
+    crate::tests::aqua_adapter_tests::run_add_liquidity(&test_env);
+    crate::tests::aqua_adapter_tests::run_remove_liquidity(&test_env);
+    // Phoenix
+    crate::tests::phoenix_adapter_tests::run_swap_exact_in(&test_env);
+    crate::tests::phoenix_adapter_tests::run_swap_exact_out(&test_env);
+    crate::tests::phoenix_adapter_tests::run_add_liquidity(&test_env);
+    crate::tests::phoenix_adapter_tests::run_remove_liquidity(&test_env);
+}

@@ -5,7 +5,7 @@ use soroban_sdk::{Env, vec};
 use crate::tests::test_setup::{ HoopsTestEnvironment};
 extern crate std;
 
-fn run_swap_exact_in(test_env: &HoopsTestEnvironment) {
+pub fn run_swap_exact_in(test_env: &HoopsTestEnvironment) {
     let env = &test_env.env;
     env.mock_all_auths();
     let user = &test_env.user;
@@ -30,7 +30,7 @@ fn run_swap_exact_in(test_env: &HoopsTestEnvironment) {
     assert_eq!(final_user_balance_b, initial_user_balance_b + amount_out, "User TKB balance should increase by amount_out");
 }
 
-fn run_swap_exact_out(test_env: &HoopsTestEnvironment) {
+pub fn run_swap_exact_out(test_env: &HoopsTestEnvironment) {
     let env = &test_env.env;
     env.mock_all_auths();
     let user = &test_env.user;
@@ -65,7 +65,7 @@ fn run_swap_exact_out(test_env: &HoopsTestEnvironment) {
     assert_eq!(final_user_balance_a, initial_user_balance_a - amount_in_used, "User TKA balance should decrease by amount_in_used");
 }
 
-fn run_add_liquidity(test_env: &HoopsTestEnvironment) {
+pub fn run_add_liquidity(test_env: &HoopsTestEnvironment) {
     let env = &test_env.env;
     env.mock_all_auths();
     let user = &test_env.user;
@@ -74,6 +74,8 @@ fn run_add_liquidity(test_env: &HoopsTestEnvironment) {
     let soroswap_adapter_client = &test_env.adapters.soroswap;
     let amount_a: i128 = 500_000;
     let amount_b: i128 = 500_000;
+    let amt_a_min: i128 = 1; // Patch: supply min amounts
+    let amt_b_min: i128 = 1;
     let deadline = env.ledger().timestamp() + 100;
     let pool = test_env.soroswap.pool_ids.get(0).unwrap();
     let pool_client = crate::tests::test_setup::soroswap_pair::SoroswapPairClient::new(env, &pool);
@@ -85,7 +87,7 @@ fn run_add_liquidity(test_env: &HoopsTestEnvironment) {
     token_a_client.approve(user, &test_env.soroswap.router_id.clone().unwrap(), &amount_a, &(env.ledger().timestamp() as u32 + 200));
     token_b_client.approve(user, &test_env.soroswap.router_id.clone().unwrap(), &amount_b, &(env.ledger().timestamp() as u32 + 200));
     std::println!("[SOROSWAP][add_liquidity] Adding liquidity: amount_a = {}, amount_b = {}", amount_a, amount_b);
-    let (amt_a, amt_b, lp) = soroswap_adapter_client.add_liquidity(&token_a_client.address, &token_b_client.address, &amount_a, &amount_b, user, &deadline);
+    let (amt_a, amt_b, lp) = soroswap_adapter_client.add_liquidity(&token_a_client.address, &token_b_client.address, &amount_a, &amount_b, &amt_a_min, &amt_b_min, user, &deadline);
     std::println!("[SOROSWAP][add_liquidity] Result: amt_a = {}, amt_b = {}, lp = {}", amt_a, amt_b, lp);
     let after_reserves = pool_client.get_reserves();
     let after_lp_balance = lp_token_client.balance(user);
@@ -96,7 +98,7 @@ fn run_add_liquidity(test_env: &HoopsTestEnvironment) {
     assert!(after_lp_balance > before_lp_balance, "User LP balance should increase");
 }
 
-fn run_remove_liquidity(test_env: &HoopsTestEnvironment) {
+pub fn run_remove_liquidity(test_env: &HoopsTestEnvironment) {
     let env = &test_env.env;
     env.mock_all_auths();
     let user = &test_env.user;
@@ -111,9 +113,11 @@ fn run_remove_liquidity(test_env: &HoopsTestEnvironment) {
     std::println!("[SOROSWAP][remove_liquidity] Pool reserves before: {:?}", before_reserves);
     std::println!("[SOROSWAP][remove_liquidity] User LP balance before: {}", before_lp_balance);
     let lp_amt: i128 = 100_000; // Try to remove some LP tokens
+    let amt_a_min: i128 = 1; // Patch: supply min amounts
+    let amt_b_min: i128 = 1;
     let deadline = env.ledger().timestamp() + 100;
     std::println!("[SOROSWAP][remove_liquidity] Removing liquidity: lp_amt = {}", lp_amt);
-    let (amt_a_out, amt_b_out) = soroswap_adapter_client.remove_liquidity(&pool, &lp_amt, user, &deadline);
+    let (amt_a_out, amt_b_out) = soroswap_adapter_client.remove_liquidity(&pool, &lp_amt, &amt_a_min, &amt_b_min, user, &deadline);
     std::println!("[SOROSWAP][remove_liquidity] Result: amt_a_out = {}, amt_b_out = {}", amt_a_out, amt_b_out);
     let after_reserves = pool_client.get_reserves();
     let after_lp_balance = lp_token_client.balance(user);
@@ -125,7 +129,7 @@ fn run_remove_liquidity(test_env: &HoopsTestEnvironment) {
 }
 
 #[test]
-fn test_soroswap_adapter_all() {
+pub fn test_soroswap_adapter_all() {
     let test_env = HoopsTestEnvironment::setup();
     run_swap_exact_in(&test_env);
     run_swap_exact_out(&test_env);
