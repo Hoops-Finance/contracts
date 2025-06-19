@@ -1,9 +1,9 @@
-use soroban_sdk::{contracttype, symbol_short, Address, Env, Symbol, unwrap::UnwrapOptimized};
+use soroban_sdk::{contracttype, symbol_short, Address, Env, Symbol, unwrap::UnwrapOptimized, Vec};
 use hoops_adapter_interface::AdapterError;
 
 #[derive(Clone)]
 #[contracttype]
-enum Key { Amm, Init }
+enum Key { Amm, Init, Pool(PoolKey) }
 
 const DAY_LEDGER: u32 = 17_280;
 const BUMP: u32 = 60 * DAY_LEDGER;
@@ -16,6 +16,12 @@ pub struct CoreConfig {
     pub next: u32,
     pub ttl_thresh: u32,
     pub ttl_bump: u32,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PoolKey {
+    pub tokens: Vec<Address>,
 }
 
 pub const KEY_CORE_CONFIG: Symbol = symbol_short!("CONFIG");
@@ -42,4 +48,27 @@ pub fn is_init(e:&Env)->bool{ e.storage().instance().has(&Key::Init) }
 
 pub fn bump(e:&Env){
     e.storage().instance().extend_ttl(BUMP-DAY_LEDGER, BUMP);
+}
+
+// Helper to sort a soroban_sdk::Vec<Address> canonically
+fn sort_addresses(e: &Env, tokens: &Vec<Address>) -> Vec<Address> {
+    let mut arr: [Address; 2] = [tokens.get_unchecked(0), tokens.get_unchecked(1)];
+    if arr[0] > arr[1] {
+        arr.swap(0, 1);
+    }
+    Vec::from_array(e, arr)
+}
+
+// Store a pool address for a given set of tokens (sorted for canonicalization)
+pub fn set_pool_for_tokens(e: &Env, tokens: &Vec<Address>, pool: &Address) {
+    let tokens_sorted = sort_addresses(e, tokens);
+    let key = Key::Pool(PoolKey { tokens: tokens_sorted });
+    e.storage().instance().set(&key, pool);
+}
+
+// Get a pool address for a given set of tokens (sorted for canonicalization)
+pub fn get_pool_for_tokens(e: &Env, tokens: &Vec<Address>) -> Option<Address> {
+    let tokens_sorted = sort_addresses(e, tokens);
+    let key = Key::Pool(PoolKey { tokens: tokens_sorted });
+    e.storage().instance().get(&key)
 }

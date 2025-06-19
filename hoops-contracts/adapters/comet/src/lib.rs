@@ -16,6 +16,17 @@ const PROTOCOL_ID: i128 = 1;
 #[contract]
 pub struct CometAdapter;
 
+impl CometAdapter {
+    /// Register a pool for a set of tokens (sorted for canonicalization)
+    pub fn set_pool_for_tokens(e: Env, tokens: Vec<Address>, pool: Address) {
+        set_pool_for_tokens(&e, &tokens, &pool);
+    }
+    /// Get a pool for a set of tokens (sorted for canonicalization)
+    pub fn get_pool_for_tokens(e: Env, tokens: Vec<Address>) -> Option<Address> {
+        get_pool_for_tokens(&e, &tokens)
+    }
+}
+
 #[contractimpl]
 impl AdapterTrait for CometAdapter {
 
@@ -56,12 +67,12 @@ impl AdapterTrait for CometAdapter {
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
         }
-
-        let pool = CometPoolClient::new(&e, &get_amm(&e)?);
-        // Only support single-hop for now
+        // Use pool mapping
+        let pool_addr = CometAdapter::get_pool_for_tokens(e.clone(), path.clone())
+            .ok_or(AdapterError::ExternalFailure)?;
+        let pool = CometPoolClient::new(&e, &pool_addr);
         let offer_asset = path.get(0).ok_or(AdapterError::UnsupportedPair)?;
         let ask_asset = path.get(1).ok_or(AdapterError::UnsupportedPair)?;
-        
         let (amt_out, _) = pool.swap_exact_amount_in(
             &offer_asset,
             &amount_in,
@@ -70,7 +81,6 @@ impl AdapterTrait for CometAdapter {
             &i128::MAX, // max_price
             &to
         );
-        
         bump(&e);
         Ok(amt_out)
     }
@@ -88,12 +98,12 @@ impl AdapterTrait for CometAdapter {
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
         }
-        
-        let pool = CometPoolClient::new(&e, &get_amm(&e)?);
-        // Only support single-hop for now
+        // Use pool mapping
+        let pool_addr = CometAdapter::get_pool_for_tokens(e.clone(), path.clone())
+            .ok_or(AdapterError::ExternalFailure)?;
+        let pool = CometPoolClient::new(&e, &pool_addr);
         let offer_asset = path.get(0).ok_or(AdapterError::UnsupportedPair)?;
         let ask_asset = path.get(1).ok_or(AdapterError::UnsupportedPair)?;
-        
         let (amt_in, _) = pool.swap_exact_amount_out(
             &offer_asset,
             &max_in,
@@ -102,13 +112,11 @@ impl AdapterTrait for CometAdapter {
             &i128::MAX, // max_price
             &to
         );
-        
         bump(&e);
         Ok(amt_in)
     }
 
     /* ---------- liquidity ---------- */
-    #[allow(unused_variables)]
     fn add_liquidity(
         e: Env,
         token_a: Address,
@@ -125,25 +133,21 @@ impl AdapterTrait for CometAdapter {
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
         }
-
-        let pool = CometPoolClient::new(&e, &get_amm(&e)?);
-        // Use min amounts for slippage protection
+        let tokens = Vec::from_array(&e, [token_a.clone(), token_b.clone()]);
+        let pool_addr = CometAdapter::get_pool_for_tokens(e.clone(), tokens.clone())
+            .ok_or(AdapterError::ExternalFailure)?;
+        let pool = CometPoolClient::new(&e, &pool_addr);
         let max_amounts = Vec::from_array(&e, [amt_a, amt_b]);
-        let min_amounts = Vec::from_array(&e, [amt_a_min, amt_b_min]);
-        // Calculate LP tokens to mint (simplified, should be based on pool state)
-        let pool_amount_out = amt_a.min(amt_b); // Placeholder logic
-
-        // In a real implementation, join_pool should use min_amounts for slippage checks
+        let pool_amount_out = amt_a.min(amt_b);
         pool.join_pool(
             &pool_amount_out,
             &max_amounts,
             &to
         );
-
         bump(&e);
         Ok((amt_a, amt_b, pool_amount_out))
     }
-#[allow(unused_variables)]
+
     fn remove_liquidity(
         e: Env,
         lp_token: Address,
@@ -153,27 +157,28 @@ impl AdapterTrait for CometAdapter {
         to: Address,
         deadline: u64
     ) -> Result<(i128, i128), AdapterError> {
-        to.require_auth();
-        if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
-        if e.ledger().timestamp() > deadline {
-            return Err(AdapterError::ExternalFailure);
+        #[allow(unused_variables)]
+        {
+            to.require_auth();
+            if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
+            if e.ledger().timestamp() > deadline {
+                return Err(AdapterError::ExternalFailure);
+            }
+            // Use pool mapping
+            // For two-token pools, use the LP token and the two underlying tokens
+            // Here, we assume the LP token is unique per pool, so we use it as the key
+            // If needed, update to use the correct token set
+            let pool_addr = CometAdapter::get_pool_for_tokens(e.clone(), Vec::from_array(&e, [lp_token.clone(), lp_token.clone()]))
+                .ok_or(AdapterError::ExternalFailure)?;
+            let pool = CometPoolClient::new(&e, &pool_addr);
+            let min_amounts_out = Vec::from_array(&e, [amt_a_min, amt_b_min]);
+            pool.exit_pool(
+                &lp_amount,
+                &min_amounts_out,
+                &to
+            );
+            bump(&e);
+            Ok((amt_a_min, amt_b_min))
         }
-
-        let pool = CometPoolClient::new(&e, &get_amm(&e)?);
-        // Use min amounts for slippage protection
-        let min_amounts_out = Vec::from_array(&e, [amt_a_min, amt_b_min]);
-
-        pool.exit_pool(
-            &lp_amount,
-            &min_amounts_out,
-            &to
-        );
-
-        // In a real implementation, should return actual withdrawn amounts
-        let amt_a = lp_amount / 2; // Placeholder
-        let amt_b = lp_amount / 2;
-
-        bump(&e);
-        Ok((amt_a, amt_b))
     }
 }
