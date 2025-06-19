@@ -46,6 +46,8 @@ pub trait AdapterTrait {
         token_b: Address,
         amt_a: i128,
         amt_b: i128,
+        amt_a_min: i128,
+        amt_b_min: i128,
         to: Address,
         deadline: u64,
     ) -> Result<(i128, i128, i128), AdapterError>;
@@ -54,6 +56,8 @@ pub trait AdapterTrait {
         e: Env,
         lp_token: Address,
         lp_amount: i128,
+        amt_a_min: i128,
+        amt_b_min: i128,
         to: Address,
         deadline: u64,
     ) -> Result<(i128,i128), AdapterError>;
