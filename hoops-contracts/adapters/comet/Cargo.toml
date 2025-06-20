@@ -10,3 +10,4 @@ crate-type = ["cdylib"]
 soroban-sdk            = { workspace = true }
 hoops-adapter-interface = { path = "../../adapter-interface" }
 hoops-common            = { path = "../../common" }
+soroban-fixed-point-math = { workspace = true }
