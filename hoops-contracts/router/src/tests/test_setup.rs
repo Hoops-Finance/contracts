@@ -1032,11 +1032,23 @@ fn test_all_adapters_all_functions() {
     if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_swap_exact_out(&test_env))) {
         std::println!("[FAIL][COMET][swap_exact_out]: {:?}", e); failures += 1;
     }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_add_liquidity(&test_env))) {
-        std::println!("[FAIL][COMET][add_liquidity]: {:?}", e); failures += 1;
-    }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_remove_liquidity(&test_env))) {
-        std::println!("[FAIL][COMET][remove_liquidity]: {:?}", e); failures += 1;
+    
+    // Run add_liquidity and capture the LP token amount
+    let lp = match std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_add_liquidity(&test_env))) {
+        Ok(lp) => lp,
+        Err(e) => {
+            std::println!("[FAIL][COMET][add_liquidity]: {:?}", e); failures += 1;
+            0 // Default value if the test fails
+        }
+    };
+
+    // Only run remove_liquidity if add_liquidity succeeded (lp > 0)
+    if lp > 0 {
+        if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_remove_liquidity(&test_env, lp))) {
+            std::println!("[FAIL][COMET][remove_liquidity]: {:?}", e); failures += 1;
+        }
+    } else {
+        std::println!("[INFO][COMET] add liquidity failed, skipping remove");
     }
     // Aqua
     if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::aqua_adapter_tests::run_swap_exact_in(&test_env))) {
