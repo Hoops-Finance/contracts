@@ -9,6 +9,15 @@ pub enum AdapterError {
     DefaultError = 100,
     UnsupportedPair = 101,
     ExternalFailure = 102,
+    PoolNotFound = 200,
+    InsufficientLpBalance = 201,
+    MinAmountNotMet = 202,
+    MaxInRatio = 203,
+    MaxOutRatio = 204,
+    DeadlinePassed = 205,
+    NotInitialized = 206,
+    InvalidArgument = 207,
+    // Add more as needed
 }
 
 pub struct Spec;
