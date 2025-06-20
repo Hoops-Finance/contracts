@@ -1,5 +1,4 @@
-// you might need to comment this out or uncomment it depending on if you're building for wasm or tests because of the hacky rlib,cdylib targeting.
-//#![cfg(test)]
+#![cfg(all(not(target_family = "wasm")))]
 #![allow(dead_code)]
 extern crate std;
 
