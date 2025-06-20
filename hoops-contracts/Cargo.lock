@@ -424,6 +424,7 @@ version = "0.1.0"
 dependencies = [
  "hoops-adapter-interface",
  "hoops-common",
+ "soroban-fixed-point-math",
  "soroban-sdk",
 ]
 
