@@ -68,8 +68,10 @@ pub fn run_swap_exact_out(test_env: &HoopsTestEnvironment) {
     let fee_bps: i128 = 30; // 0.3% fee, adjust if different
     let numerator = reserve_in * desired_out * 10_000;
     let denominator = (reserve_out - desired_out) * (10_000 - fee_bps);
-    let max_in = if denominator == 0 { 0 } else { (numerator + denominator - 1) / denominator }; // ceiling division
+    let max_in = if denominator == 0 { 0 } else { ((numerator + denominator ) / denominator) + 1 }; // ceiling division
     // For verification/logging only, get the router's computed value
+    let router = test_env.soroswap.router_id.clone().unwrap();
+    let router_client = crate::tests::test_setup::soroswap_router::SoroswapRouterClient::new(env, &router);
     let amounts_in = router_client.router_get_amounts_in(&desired_out, &path);
     let required_in = amounts_in.get(0).unwrap();
     std::println!("[SOROSWAP][swap_exact_out] Pool reserves: TKA = {:.7}, TKB = {:.7}", (reserves.0 as f64) * 1e-7, (reserves.1 as f64) * 1e-7);
