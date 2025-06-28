@@ -102,8 +102,6 @@ pub fn run_remove_liquidity(test_env: &HoopsTestEnvironment) {
     let env = &test_env.env;
     env.mock_all_auths();
     let user = &test_env.user;
-    let token_a_client = token::Client::new(&env, &test_env.tokens.client_a);
-    let token_b_client = token::Client::new(&env, &test_env.tokens.client_b);
     let soroswap_adapter_client = &test_env.adapters.soroswap;
     let pool = test_env.soroswap.pool_ids.get(0).unwrap();
     let pool_client = crate::tests::test_setup::soroswap_pair::SoroswapPairClient::new(env, &pool);

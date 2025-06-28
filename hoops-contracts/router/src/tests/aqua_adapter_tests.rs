@@ -88,8 +88,6 @@ pub fn run_remove_liquidity(test_env: &HoopsTestEnvironment) {
     let env = &test_env.env;
     env.mock_all_auths();
     let user = &test_env.user;
-    let token_a_client = token::Client::new(&env, &test_env.tokens.client_a);
-    let token_b_client = token::Client::new(&env, &test_env.tokens.client_b);
     let aqua_adapter_client = &test_env.adapters.aqua;
     let pool = test_env.aqua.pool_ids.get(0).unwrap();
     let lp_amt: i128 = 100_000;
