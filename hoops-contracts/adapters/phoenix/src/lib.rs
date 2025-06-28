@@ -8,7 +8,7 @@ use storage::*;
 #[allow(unused_imports)]
 use event::*;
 use hoops_adapter_interface::{AdapterTrait, AdapterError};
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Vec};
 use protocol::phoenix_pair::PhoenixPoolClient;
 
 const PROTOCOL_ID: i128 = 2;
@@ -121,6 +121,11 @@ impl AdapterTrait for PhoenixAdapter {
             return Err(AdapterError::ExternalFailure);
         }
         let pool = PhoenixPoolClient::new(&e, &get_amm(&e)?);
+        // Query the pool for the share token address
+        let pool_info = pool.query_pool_info();
+        let share_token_addr = pool_info.asset_lp_share.address;
+        let share_token_client = soroban_sdk::token::Client::new(&e, &share_token_addr);
+        let before_lp = share_token_client.balance(&to);
         pool.provide_liquidity(
             &to, // sender
             &Some(amt_a),
@@ -131,8 +136,10 @@ impl AdapterTrait for PhoenixAdapter {
             &Some(deadline),
             &false // auto_stake
         );
+        let after_lp = share_token_client.balance(&to);
+        let lp_minted = after_lp - before_lp;
         bump(&e);
-        Ok((amt_a, amt_b, 0)) // placeholder for lp_minted_amount
+        Ok((amt_a, amt_b, lp_minted))
     }
 
     fn remove_liquidity(

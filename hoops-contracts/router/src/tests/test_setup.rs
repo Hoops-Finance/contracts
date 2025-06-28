@@ -111,14 +111,14 @@ pub mod phoenix_pool {
     soroban_sdk::contractimport!(file = "../bytecodes/phoenix_pool.wasm");
     pub type PhoenixPoolClient<'a> = Client<'a>;
 }
-use phoenix_pool::PhoenixPoolClient;
+pub use phoenix_pool::PhoenixPoolClient;
 
 
 pub mod phoenix_pool_stable {
     soroban_sdk::contractimport!(file = "../bytecodes/phoenix_pool_stable.wasm");
     pub type PhoenixPoolStableClient<'a> = Client<'a>;
 }
-use phoenix_pool_stable::PhoenixPoolStableClient;
+pub use phoenix_pool_stable::PhoenixPoolStableClient;
 
 pub mod phoenix_multihop {
     soroban_sdk::contractimport!(file = "../bytecodes/phoenix_multihop.wasm");
@@ -838,15 +838,15 @@ impl<'a> HoopsTestEnvironment<'a> {
         let phoenix_bc_b = 999_000_000_000i128;
         let phoenix_bc_c = 1_000_000_000_000i128;
         std::println!("[Phoenix] Minting {} of token A and {} of token B for Pool AB", phoenix_ab_a, phoenix_ab_b);
-        mint_and_approve(&env, &user, &token_a_client.address, phoenix_ab_a, &phoenix_amm.pool_ids.get(0).unwrap());
-        mint_and_approve(&env, &user, &token_b_client.address, phoenix_ab_b, &phoenix_amm.pool_ids.get(0).unwrap());
+        mint_and_approve(&env, &admin, &token_a_client.address, phoenix_ab_a, &phoenix_amm.pool_ids.get(0).unwrap());
+        mint_and_approve(&env, &admin, &token_b_client.address, phoenix_ab_b, &phoenix_amm.pool_ids.get(0).unwrap());
         std::println!("[Phoenix] Depositing to Pool AB: {} A, {} B", phoenix_ab_a, phoenix_ab_b);
-        provide_liquidity_phoenix(&env, &phoenix_amm.pool_ids.get(0).unwrap(), &user, &token_a_client.address, &token_b_client.address, phoenix_ab_a, phoenix_ab_b);
+        provide_liquidity_phoenix(&env, &phoenix_amm.pool_ids.get(0).unwrap(), &admin, &token_a_client.address, &token_b_client.address, phoenix_ab_a, phoenix_ab_b);
         std::println!("[Phoenix] Minting {} of token B and {} of token C for Pool BC", phoenix_bc_b, phoenix_bc_c);
-        mint_and_approve(&env, &user, &token_b_client.address, phoenix_bc_b, &phoenix_amm.pool_ids.get(1).unwrap());
-        mint_and_approve(&env, &user, &token_c_client.address, phoenix_bc_c, &phoenix_amm.pool_ids.get(1).unwrap());
+        mint_and_approve(&env, &admin, &token_b_client.address, phoenix_bc_b, &phoenix_amm.pool_ids.get(1).unwrap());
+        mint_and_approve(&env, &admin, &token_c_client.address, phoenix_bc_c, &phoenix_amm.pool_ids.get(1).unwrap());
         std::println!("[Phoenix] Depositing to Pool BC: {} B, {} C", phoenix_bc_b, phoenix_bc_c);
-        provide_liquidity_phoenix_stable(&env, &phoenix_amm.pool_ids.get(1).unwrap(), &user, &token_b_client.address, &token_c_client.address, phoenix_bc_b, phoenix_bc_c);
+        provide_liquidity_phoenix_stable(&env, &phoenix_amm.pool_ids.get(1).unwrap(), &admin, &token_b_client.address, &token_c_client.address, phoenix_bc_b, phoenix_bc_c);
         std::println!("[SETUP] Phoenix environment ready");
 
         // --- Comet Setup ---
@@ -1021,7 +1021,7 @@ fn test_all_adapters_all_functions() {
     if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_swap_exact_out(&test_env))) {
         std::println!("[FAIL][SOROSWAP][swap_exact_out]: {:?}", e); failures += 1;
     }
-    
+
     let lp = match std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_add_liquidity(&test_env))) {
         Ok(lp) => lp,
         Err(e) => {
@@ -1082,11 +1082,21 @@ fn test_all_adapters_all_functions() {
     if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_swap_exact_out(&test_env))) {
         std::println!("[FAIL][PHOENIX][swap_exact_out]: {:?}", e); failures += 1;
     }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_add_liquidity(&test_env))) {
-        std::println!("[FAIL][PHOENIX][add_liquidity]: {:?}", e); failures += 1;
-    }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_remove_liquidity(&test_env))) {
-        std::println!("[FAIL][PHOENIX][remove_liquidity]: {:?}", e); failures += 1;
+    // Run add_liquidity and capture the LP token amount
+    let lp = match std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_add_liquidity(&test_env))) {
+        Ok(lp) => lp,
+        Err(e) => {
+            std::println!("[FAIL][PHOENIX][add_liquidity]: {:?}", e); failures += 1;
+            0 // Default value if the test fails
+        }
+    };
+    // Only run remove_liquidity if add_liquidity succeeded (lp > 0)
+    if lp > 0 {
+        if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_remove_liquidity(&test_env, lp))) {
+            std::println!("[FAIL][PHOENIX][remove_liquidity]: {:?}", e); failures += 1;
+        }
+    } else {
+        std::println!("[INFO][PHOENIX] add liquidity failed, skipping remove");
     }
     if failures > 0 {
         panic!("{} adapter subtests failed. See log for details.", failures);
