@@ -10,11 +10,13 @@ use storage::*;
 use event::*;
 use protocol::CometPoolClient;
 use hoops_adapter_interface::{AdapterTrait, AdapterError};
-use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec, I256,unwrap::UnwrapOptimized};
+use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec, I256, unwrap::UnwrapOptimized};
 
 const PROTOCOL_ID: i128 = 1;
 pub const STROOP: i128 = 10i128.pow(7);
 pub const STROOP_SCALAR: i128 = 10i128.pow(11);
+/// Fixed-point scale expected by c_math helpers (1 e-9).
+pub const ONE_E9: i128 = 1_000_000_000;
 
 #[contract]
 pub struct CometAdapter;
@@ -133,8 +135,8 @@ impl AdapterTrait for CometAdapter {
         token_b: Address,
         amt_a: i128,
         amt_b: i128,
-        amt_a_min: i128,
-        amt_b_min: i128,
+        _amt_a_min: i128,
+        _amt_b_min: i128,
         to: Address,
         deadline: u64
     ) -> Result<(i128, i128, i128), AdapterError> {
@@ -148,27 +150,41 @@ impl AdapterTrait for CometAdapter {
             .ok_or(AdapterError::ExternalFailure)?;
         let pool = CometPoolClient::new(&e, &pool_addr);
         let max_amounts = Vec::from_array(&e, [amt_a, amt_b]);
-        // --- Calculate pool_amount_out using real pool metadata ---
+
+        // Fetch pool metadata
         let pool_total = pool.get_total_supply();
-        let swap_fee = pool.get_swap_fee();
-        // Fetch real balance and weight for token_a
-        let balance_a = pool.get_balance(&token_a.clone());
-        let weight_a = pool.get_normalized_weight(&token_a.clone());
-        // For now, assume scalar is 10_000_000 (7 decimals)
-        let scalar_a = 10_000_000;
-        let record_a = Record {
-            balance: balance_a,
-            weight: weight_a,
-            scalar: scalar_a,
-            index: 0,
-        };
-        let pool_amount_out = calc_lp_token_amount_given_token_deposits_in(
-            &e,
-            &record_a,
-            pool_total,
-            amt_a,
-            swap_fee,
-        );
+        let balances = Vec::from_array(&e, [pool.get_balance(&token_a), pool.get_balance(&token_b)]);
+
+        let decimals_a = token::Client::new(&e, &token_a).decimals();
+        let decimals_b = token::Client::new(&e, &token_b).decimals();
+        let scalars = Vec::from_array(&e, [10i128.pow(decimals_a as u32), 10i128.pow(decimals_b as u32)]);
+
+        // Calculate join ratios for each token
+        let mut min_ratio = None;
+        for i in 0..2 {
+            let user_amt = max_amounts.get_unchecked(i);
+            let pool_bal = balances.get_unchecked(i);
+            let scalar = scalars.get_unchecked(i);
+            // Upscale user_amt and pool_bal to I256
+            let user_amt_scaled = I256::from_i128(&e, user_amt * scalar);
+            let pool_bal_scaled = I256::from_i128(&e, pool_bal * scalar);
+            // ratio = user_amt / pool_bal
+            let ratio = if pool_bal_scaled > I256::from_i32(&e, 0) {
+                user_amt_scaled.fixed_div_floor(&e, &pool_bal_scaled, &I256::from_i128(&e, ONE_E9))
+            } else {
+                I256::from_i32(&e, 0)
+            };
+            min_ratio = Some(match min_ratio {
+                None => ratio,
+                Some(r) => if ratio < r { ratio } else { r },
+            });
+        }
+        // pool_amount_out = pool_total * min_ratio
+        let pool_total_256 = I256::from_i128(&e, pool_total);
+        let min_ratio = min_ratio.unwrap_or(I256::from_i32(&e, 0));
+        let pool_amount_out_256 = pool_total_256.fixed_mul_floor(&e, &min_ratio, &I256::from_i128(&e, ONE_E9));
+        let pool_amount_out = pool_amount_out_256.to_i128().unwrap_optimized();
+
         let before_lp = pool.balance(&to);
         let before_a = token::Client::new(&e, &token_a).balance(&to);
         let before_b = token::Client::new(&e, &token_b).balance(&to);
@@ -205,22 +221,23 @@ impl AdapterTrait for CometAdapter {
         let pool = CometPoolClient::new(&e, &lp_token);
         let min_amounts_out = Vec::from_array(&e, [amt_a_min, amt_b_min]);
         let tokens = pool.get_tokens();
-        let before_a = token::Client::new(&e, &tokens.get_unchecked(0)).balance(&to);
-        let before_b = token::Client::new(&e, &tokens.get_unchecked(1)).balance(&to);
-        let before_lp = pool.balance(&to);
+        let token_a = tokens.get_unchecked(0);
+        let token_b = tokens.get_unchecked(1);
+        
+        let before_a = token::Client::new(&e, &token_a).balance(&to);
+        let before_b = token::Client::new(&e, &token_b).balance(&to);
+       
         pool.exit_pool(
             &lp_amount,
             &min_amounts_out,
             &to
         );
         bump(&e);
-        let after_a = token::Client::new(&e, &tokens.get_unchecked(0)).balance(&to);
-        let after_b = token::Client::new(&e, &tokens.get_unchecked(1)).balance(&to);
-        let after_lp = pool.balance(&to);
+        let after_a = token::Client::new(&e, &token_a).balance(&to);
+        let after_b = token::Client::new(&e, &token_b).balance(&to);
         let actual_a = after_a - before_a;
         let actual_b = after_b - before_b;
-        // Optionally, check that LP tokens decreased by lp_amount
-        let _lp_diff = before_lp - after_lp;
+       
         Ok((actual_a, actual_b))
     }
 }
@@ -232,108 +249,4 @@ pub struct Record {
     pub weight: i128,
     pub scalar: i128,
     pub index: u32,
-}
-
-const BONE: i128 = 10i128.pow(18);
-
-fn upscale(e: &Env, amount: i128, scalar: i128) -> I256 {
-    I256::from_i128(e, amount * scalar)
-}
-fn downscale_floor(e: &Env, amount: &I256, scalar: i128) -> i128 {
-    let scale_256 = I256::from_i128(e, scalar);
-    let one = I256::from_i32(e, 1);
-    let result = amount.fixed_div_floor(&e, &scale_256, &one).to_i128();
-    result.unwrap_optimized()
-}
-fn sub_no_negative(e: &Env, a: &I256, b: &I256) -> I256 {
-    assert!(a >= b, "sub_no_negative underflow");
-    a.sub(&b)
-}
-fn c_pow(e: &Env, base: &I256, exp: &I256, round_up: bool) -> I256 {
-    let bone = I256::from_i128(e, BONE);
-    let int = exp.div(&bone);
-    let remain = exp.sub(&int.mul(&bone));
-    let whole_pow = c_powi(e, &base, &(int.to_i128().unwrap_optimized() as u32));
-    if remain == I256::from_i128(e, 0) {
-        return whole_pow;
-    }
-    let partial_result = c_pow_approx(
-        e,
-        &base,
-        &remain,
-        &I256::from_i128(e, 1_000_000_000_000_000_000),
-        round_up,
-    );
-    if round_up {
-        whole_pow.fixed_mul_ceil(e, &partial_result, &bone)
-    } else {
-        whole_pow.fixed_mul_floor(e, &partial_result, &bone)
-    }
-}
-fn c_powi(e: &Env, a: &I256, n: &u32) -> I256 {
-    let bone = I256::from_i128(e, BONE);
-    let mut z = if n % 2 != 0 { a.clone() } else { bone.clone() };
-    let mut a = a.clone();
-    let mut n = *n / 2;
-    while n != 0 {
-        a = a.fixed_mul_floor(e, &a, &bone);
-        if n % 2 != 0 {
-            z = z.fixed_mul_floor(e, &a, &bone);
-        }
-        n = n / 2
-    }
-    z
-}
-fn c_pow_approx(e: &Env, base: &I256, exp: &I256, precision: &I256, round_up: bool) -> I256 {
-    let bone = I256::from_i128(e, BONE);
-    let zero = I256::from_i32(e, 0);
-    let n_1 = I256::from_i32(e, -1);
-    let x = base.sub(&bone);
-    let mut term = bone.clone();
-    let mut sum = term.clone();
-    let prec = precision.clone();
-    for i in 1..51 {
-        let big_k = I256::from_i128(e, i * BONE);
-        let c = exp.sub(&big_k.sub(&bone));
-        term = term.fixed_mul_floor(e, &c.fixed_mul_floor(e, &x, &bone), &bone);
-        term = term.fixed_div_floor(e, &big_k, &bone);
-        sum = sum.add(&term);
-        let abs_term = if term < zero { term.mul(&n_1) } else { term.clone() };
-        if abs_term <= prec { break; }
-    }
-    if x > zero {
-        if term > zero && !round_up {
-            sum = sum.sub(&term);
-        } else if term < zero && round_up {
-            sum = sum.sub(&term);
-        }
-    } else if !round_up {
-        sum = sum.add(&term);
-    }
-    sum
-}
-fn calc_lp_token_amount_given_token_deposits_in(
-    e: &Env,
-    record: &Record,
-    pool_supply: i128,
-    token_amount_in: i128,
-    swap_fee: i128,
-) -> i128 {
-    let bone = I256::from_i128(e, BONE);
-    let token_balance_in = upscale(e, record.balance, record.scalar);
-    let token_amount_in = upscale(e, token_amount_in, record.scalar);
-    let pool_supply = upscale(e, pool_supply, STROOP_SCALAR);
-    let fee = upscale(e, swap_fee, STROOP_SCALAR);
-    let normalized_weight = upscale(e, record.weight, STROOP_SCALAR);
-    let zaz = bone.sub(&normalized_weight).fixed_mul_floor(e, &fee, &bone);
-    let token_amount_in_after_fee = token_amount_in.fixed_mul_floor(&e, &bone.sub(&zaz), &bone);
-    let new_token_balance_in = token_balance_in.add(&token_amount_in_after_fee);
-    let balance_ratio = new_token_balance_in.fixed_div_floor(&e, &token_balance_in, &bone);
-    let pool_ratio = c_pow(e, &balance_ratio, &normalized_weight, false);
-    let new_pool_supply = pool_ratio.fixed_mul_floor(&e, &pool_supply, &bone);
-    downscale_floor(
-        e,
-        &sub_no_negative(e, &new_pool_supply, &pool_supply),
-        STROOP_SCALAR,
-    )
 }
