@@ -1,5 +1,5 @@
 #![cfg(test)]
-#![allow(unused_imports, unused_variables)]
+#![allow(unused_imports, unused_variables, dead_code)]
 use crate::tests::setuputils::generate_pho_lp_init_info;
 use hoops_common::types::{PhoLiquidityPoolInitInfo, PhoenixPoolType};
 use soroban_sdk::{
@@ -521,12 +521,12 @@ pub fn setup_comet_environment(
     initial_mint_amount: i128,
 ) -> AmmInfrastructure {
     // --- Comet Setup ---
-    // Pool AB: 8:2 ratio (8M A, 2M B)
-    let comet_ab_a = 8_000_000i128;
-    let comet_ab_b = 2_000_000i128;
-    // Pool BC: 5:5 ratio (5M B, 5M C)
-    let comet_bc_b = 5_000_000i128;
-    let comet_bc_c = 5_000_000i128;
+    // Pool AB: 7:1 price, 80/20 weights
+    let comet_ab_a = 2_800_000_000_000i128; // 2.8M A (7 decimals)
+    let comet_ab_b = 100_000_000_000i128;   // 0.1M B (7 decimals)
+    // Pool BC: 1:1 price, 50/50 weights
+    let comet_bc_b = 1_000_000_000_000i128;
+    let comet_bc_c = 1_000_000_000_000i128;
 
     std::println!("[Comet] Registering factory contract");
     let comet_factory_id = env.register(COMET_FACTORY_WASM, ());
@@ -537,13 +537,13 @@ pub fn setup_comet_environment(
     comet_factory.init(&comet_pool_wasm_hash);
     let mut comet_pool_ids = Vec::new(env);
     // --- Robust Comet Pool Setup ---
-    // Pool 1: token_a/token_b, 80/20, 1M each
+    // Pool 1: token_a/token_b, 80/20, 7:1 price
     let tokens_ab = vec![env, token_a.clone(), token_b.clone()];
     let weights_ab = vec![env, 8_000_000i128, 2_000_000i128];
-    let balances_ab = vec![env, 1_000_000i128, 1_000_000i128];
+    let balances_ab = vec![env, comet_ab_a, comet_ab_b];
     let salt_ab = BytesN::from_array(env, &[0; 32]);
     let swap_fee = 3_000i128; // 0.03% fee, adjust as needed
-    std::println!("[Comet] Creating pool: token_a/token_b (80/20, 1M each)");
+    std::println!("[Comet] Creating pool: token_a/token_b (80/20, 7:1 price)");
     let pool_ab = comet_factory.new_c_pool(
         &salt_ab,
         admin,
@@ -554,12 +554,12 @@ pub fn setup_comet_environment(
     );
     std::println!("[Comet] Pool AB address: {:?}", pool_ab);
     comet_pool_ids.push_back(pool_ab.clone());
-    // Pool 2: token_b/token_c, 50/50, 1M each
+    // Pool 2: token_b/token_c, 50/50, 1:1 price
     let tokens_bc = vec![env, token_b.clone(), token_c.clone()];
     let weights_bc = vec![env, 5_000_000i128, 5_000_000i128];
-    let balances_bc = vec![env, 1_000_000i128, 1_000_000i128];
+    let balances_bc = vec![env, comet_bc_b, comet_bc_c];
     let salt_bc = BytesN::from_array(env, &[1; 32]);
-    std::println!("[Comet] Creating pool: token_b/token_c (50/50, 1M each)");
+    std::println!("[Comet] Creating pool: token_b/token_c (50/50, 1:1 price)");
     let pool_bc = comet_factory.new_c_pool(
         &salt_bc,
         admin,
@@ -572,6 +572,7 @@ pub fn setup_comet_environment(
     comet_pool_ids.push_back(pool_bc.clone());
     std::println!("[Comet] Minting {} of token A and {} of token B for Pool AB", comet_ab_a, comet_ab_b);
     mint_and_approve(&env, &user, &token_a, comet_ab_a, &pool_ab);
+    mint_and_approve(&env, &user, &token_b, comet_ab_b, &pool_ab);
     std::println!("[Comet] Depositing to Pool AB: {} A, {} B", comet_ab_a, comet_ab_b);
     provide_liquidity_comet(&env, &pool_ab, &user, &token_a, &token_b, comet_ab_a, comet_ab_b);
     std::println!("[Comet] Minting {} of token B and {} of token C for Pool BC", comet_bc_b, comet_bc_c);
@@ -700,8 +701,9 @@ fn provide_liquidity_comet(env: &Env, pool: &Address, user: &Address, token_a: &
     let pool_client = CometPoolClient::new(env, pool);
     let token_a_client = TokenClient::new(env, token_a);
     let token_b_client = TokenClient::new(env, token_b);
-    token_a_client.transfer(user, pool, &amount_a);
-    token_b_client.transfer(user, pool, &amount_b);
+    // Removed direct transfers to pool, unlike soroswap the pool pulls them automatically.
+    token_a_client.approve(user, pool, &amount_a, &200);
+    token_b_client.approve(user, pool, &amount_b, &200);
     // Use a positive pool_amount_out (e.g., 1_000_000)
     let pool_amount_out = 1_000_000i128;
     pool_client.join_pool(&pool_amount_out, &vec![env, amount_a, amount_b], user);
