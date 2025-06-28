@@ -362,8 +362,8 @@ pub fn setup_soroswap_environment<'a>(
     soroswap_pool_ids.push_back(pair_ab_address.clone());
     let token_a_client = TokenClient::new(env, token_a);
     let token_b_client = TokenClient::new(env, token_b);
-    token_a_client.approve(user, &soroswap_router.address, &soroswap_ab_a, &200);
-    token_b_client.approve(user, &soroswap_router.address, &soroswap_ab_b, &200);
+    token_a_client.approve(admin, &soroswap_router.address, &soroswap_ab_a, &200);
+    token_b_client.approve(admin, &soroswap_router.address, &soroswap_ab_b, &200);
     soroswap_router.add_liquidity(
         token_a,
         token_b,
@@ -371,7 +371,7 @@ pub fn setup_soroswap_environment<'a>(
         &soroswap_ab_b,
         &0,
         &0,
-        user,
+        admin,
         &(env.ledger().timestamp() + 100),
     );
 
@@ -380,8 +380,8 @@ pub fn setup_soroswap_environment<'a>(
     let pair_bc_address = soroswap_factory.get_pair(token_b, token_c);
     soroswap_pool_ids.push_back(pair_bc_address.clone());
     let token_c_client = TokenClient::new(env, token_c);
-    token_b_client.approve(user, &soroswap_router.address, &soroswap_bc_b, &200);
-    token_c_client.approve(user, &soroswap_router.address, &soroswap_bc_c, &200);
+    token_b_client.approve(admin, &soroswap_router.address, &soroswap_bc_b, &200);
+    token_c_client.approve(admin, &soroswap_router.address, &soroswap_bc_c, &200);
     soroswap_router.add_liquidity(
         token_b,
         token_c,
@@ -389,19 +389,19 @@ pub fn setup_soroswap_environment<'a>(
         &soroswap_bc_c,
         &0,
         &0,
-        user,
+        admin,
         &(env.ledger().timestamp() + 100),
     );
     std::println!("[Soroswap] Minting {} of token A and {} of token B for Pool AB", soroswap_ab_a, soroswap_ab_b);
-    mint_and_approve(&env, &user, &token_a, soroswap_ab_a, &pair_ab_address);
-    mint_and_approve(&env, &user, &token_b, soroswap_ab_b, &pair_ab_address);
+    mint_and_approve(&env, &admin, &token_a, soroswap_ab_a, &pair_ab_address);
+    mint_and_approve(&env, &admin, &token_b, soroswap_ab_b, &pair_ab_address);
     std::println!("[Soroswap] Depositing to Pool AB: {} A, {} B", soroswap_ab_a, soroswap_ab_b);
-    provide_liquidity_soroswap(&env, &pair_ab_address, &user, &token_a, &token_b, soroswap_ab_a, soroswap_ab_b);
+    provide_liquidity_soroswap(&env, &pair_ab_address, &admin, &token_a, &token_b, soroswap_ab_a, soroswap_ab_b);
     std::println!("[Soroswap] Minting {} of token B and {} of token C for Pool BC", soroswap_bc_b, soroswap_bc_c);
-    mint_and_approve(&env, &user, &token_b, soroswap_bc_b, &pair_bc_address);
-    mint_and_approve(&env, &user, &token_c, soroswap_bc_c, &pair_bc_address);
+    mint_and_approve(&env, &admin, &token_b, soroswap_bc_b, &pair_bc_address);
+    mint_and_approve(&env, &admin, &token_c, soroswap_bc_c, &pair_bc_address);
     std::println!("[Soroswap] Depositing to Pool BC: {} B, {} C", soroswap_bc_b, soroswap_bc_c);
-    provide_liquidity_soroswap(&env, &pair_bc_address, &user, &token_b, &token_c, soroswap_bc_b, soroswap_bc_c);
+    provide_liquidity_soroswap(&env, &pair_bc_address, &admin, &token_b, &token_c, soroswap_bc_b, soroswap_bc_c);
     std::println!("soroswap environment setup complete. Pools: {:?}, {:?}, router: {:?}, factory: {:?}", pair_ab_address, pair_bc_address, soroswap_router_id, soroswap_factory_id);
     let soroswap_amm = AmmInfrastructure {
         name: "Soroswap".into_val(env),
@@ -1021,11 +1021,21 @@ fn test_all_adapters_all_functions() {
     if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_swap_exact_out(&test_env))) {
         std::println!("[FAIL][SOROSWAP][swap_exact_out]: {:?}", e); failures += 1;
     }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_add_liquidity(&test_env))) {
-        std::println!("[FAIL][SOROSWAP][add_liquidity]: {:?}", e); failures += 1;
-    }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_remove_liquidity(&test_env))) {
-        std::println!("[FAIL][SOROSWAP][remove_liquidity]: {:?}", e); failures += 1;
+    
+    let lp = match std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_add_liquidity(&test_env))) {
+        Ok(lp) => lp,
+        Err(e) => {
+            std::println!("[FAIL][SOROSWAP][add_liquidity]: {:?}", e); failures += 1;
+            0 // Default value if the test fails
+        }
+    };
+    // Only run remove_liquidity if add_liquidity succeeded (lp > 0)
+    if lp > 0 {
+        if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_remove_liquidity(&test_env, lp))) {
+            std::println!("[FAIL][SOROSWAP][remove_liquidity]: {:?}", e); failures += 1;
+        }
+    } else {
+        std::println!("[INFO][SOROSWAP] add liquidity failed, skipping remove");
     }
     // Comet
     if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_swap_exact_in(&test_env))) {
