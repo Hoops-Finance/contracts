@@ -8,6 +8,7 @@ This is a log of all tests passing on adapters for all protocols, to run yoursel
 ```
 
 Test Environment Setup:
+
 ```sh
 
 running 1 test
@@ -145,6 +146,7 @@ AQUA AB LP: Contract(CCKXCJQ627FIADDV4MGVLUNRXKUOAXBSZXX3LWUP6NS22HNI4GNQ4J7M), 
 ```
 
 Aqua Tests:
+
 ```sh
 [AQUA][swap_exact_in] Initial user balances: TKA = 91797200000000, TKB = 79098900000000
 [AQUA][swap_exact_in] Swap result: amount_in = 1000000, amount_out = 996999
@@ -163,6 +165,7 @@ Aqua Tests:
 ```
 
 Comet Tests:
+
 ```sh[COMET][swap_exact_in] Initial user balances: TKA = 9179720.0000000, TKB = 7909890.0000000
 [COMET][swap_exact_in] Swap result: amount_in = 1000000000, amount_out = 142687029
 [COMET][swap_exact_in] Final user balances: TKA = 9179620.0000000, TKB = 7909904.2687029
@@ -192,6 +195,7 @@ Comet Tests:
 ```
 
 Soroswap Tests:
+
 ```sh
 [SOROSWAP][swap_exact_in] Initial user balances: TKA = 9179720.0000000, TKB = 7909890.0000000
 [SOROSWAP][swap_exact_in] Pool reserves: TKA = 701000.0000000, TKB = 100000.0000000
@@ -222,6 +226,7 @@ Soroswap Tests:
 ```
 
 Phoenix Tests:
+
 ```sh
 
 [PHOENIX][swap_exact_in] Initial user balances: TKA = 9179720.0000000, TKB = 7909890.0000000
