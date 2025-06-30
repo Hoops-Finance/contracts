@@ -53,11 +53,11 @@ This workspace contains all core smart contracts for the Hoops Finance protocol,
 ---
 
 **For contributors:**
+
 - Please keep this file and all per-contract `README.md` files up to date as you make changes.
 - Document all new features, breaking changes, and known issues.
 
-
---- 
+---
 
 ## Useful Commands
 
@@ -70,6 +70,18 @@ Sometimes you might need to do this for a specific contract, but basically you n
  stellar contract build
  find ./target/wasm32v1-none/release -type f -name '*.wasm' -exec cp {} ./bytecodes/ \;
  ```
+
+You can also build directly to the bytecodes folder:
+
+```sh
+ stellar contract build --out-dir bytecodes
+```
+
+ And if you want to build to see diagnostic logs:
+
+```sh
+  stellar contract build --out-dir bytecodes --profile release-with-logs
+```
 
  To run a single test at a time the easiest way is to go to the folder (like router) then run the test with the testname.
 
