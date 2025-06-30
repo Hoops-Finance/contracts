@@ -1,6 +1,10 @@
 #![cfg(test)]
 #![allow(unused_imports, unused_variables, dead_code)]
-use crate::tests::setuputils::generate_pho_lp_init_info;
+use crate::tests::{setuputils::generate_pho_lp_init_info, test_setup::aqua_adapter::AquaPoolInfo};
+use aqua_soroban_liquidity_pool_router_contract::testutils::{
+    create_plane_contract, create_reward_boost_feed_contract,
+};
+use aqua_token_share::token_contract::{Client as ShareTokenClient, WASM as SHARE_WASM};
 use hoops_common::types::{PhoLiquidityPoolInitInfo, PhoenixPoolType};
 use soroban_sdk::{
     testutils::{Address as _, Events, Ledger, LedgerInfo}, // Ledger, LedgerInfo, Events might be unused now, but keep for now
@@ -13,8 +17,6 @@ use soroban_sdk::{
     String,
     Vec,
 };
-use aqua_token_share::token_contract::{Client as ShareTokenClient, WASM as SHARE_WASM};
-use aqua_soroban_liquidity_pool_router_contract::testutils::{create_reward_boost_feed_contract, create_plane_contract};
 
 //testutils::create_reward_boost_feed_contract;
 
@@ -113,7 +115,6 @@ pub mod phoenix_pool {
 }
 pub use phoenix_pool::PhoenixPoolClient;
 
-
 pub mod phoenix_pool_stable {
     soroban_sdk::contractimport!(file = "../bytecodes/phoenix_pool_stable.wasm");
     pub type PhoenixPoolStableClient<'a> = Client<'a>;
@@ -186,7 +187,7 @@ pub struct TokenContracts {
     pub client_a: Address,
     pub client_b: Address,
     pub client_c: Address,
-    }
+}
 
 pub struct AmmInfrastructure {
     pub name: String, // e.g., "Soroswap", "Aqua"
@@ -281,7 +282,7 @@ pub fn set_phoenix_amm_infra(
         admin.clone(),
         user.clone(),
     );
-    
+
     let pho_bc_lp_init_info = generate_pho_lp_init_info(
         token_b_client.address.clone(),
         token_c_client.address.clone(),
@@ -303,7 +304,10 @@ pub fn set_phoenix_amm_infra(
         &100i64,
         &1_000,
     );
-    std::println!("Phoenix constant pool AB address: {:?}", phoenix_constant_pool_ab_address);
+    std::println!(
+        "Phoenix constant pool AB address: {:?}",
+        phoenix_constant_pool_ab_address
+    );
     let phoenix_pool_stable_bc_address = phoenix_factory.create_liquidity_pool(
         &admin,
         &pho_bc_lp_init_info,
@@ -314,8 +318,15 @@ pub fn set_phoenix_amm_infra(
         &100i64,
         &1_000,
     );
-    std::println!("Phoenix stable pool BC address: {:?}", phoenix_pool_stable_bc_address);
-    std::println!("Phoenix Pools created: {:?}, {:?}", phoenix_constant_pool_ab_address, phoenix_pool_stable_bc_address);
+    std::println!(
+        "Phoenix stable pool BC address: {:?}",
+        phoenix_pool_stable_bc_address
+    );
+    std::println!(
+        "Phoenix Pools created: {:?}, {:?}",
+        phoenix_constant_pool_ab_address,
+        phoenix_pool_stable_bc_address
+    );
     phoenix_pool_ids.push_back(phoenix_constant_pool_ab_address.clone());
     phoenix_pool_ids.push_back(phoenix_pool_stable_bc_address.clone());
     let phoenix_amm = AmmInfrastructure {
@@ -392,17 +403,55 @@ pub fn setup_soroswap_environment<'a>(
         admin,
         &(env.ledger().timestamp() + 100),
     );
-    std::println!("[Soroswap] Minting {} of token A and {} of token B for Pool AB", soroswap_ab_a, soroswap_ab_b);
+    std::println!(
+        "[Soroswap] Minting {} of token A and {} of token B for Pool AB",
+        soroswap_ab_a,
+        soroswap_ab_b
+    );
     mint_and_approve(&env, &admin, &token_a, soroswap_ab_a, &pair_ab_address);
     mint_and_approve(&env, &admin, &token_b, soroswap_ab_b, &pair_ab_address);
-    std::println!("[Soroswap] Depositing to Pool AB: {} A, {} B", soroswap_ab_a, soroswap_ab_b);
-    provide_liquidity_soroswap(&env, &pair_ab_address, &admin, &token_a, &token_b, soroswap_ab_a, soroswap_ab_b);
-    std::println!("[Soroswap] Minting {} of token B and {} of token C for Pool BC", soroswap_bc_b, soroswap_bc_c);
+    std::println!(
+        "[Soroswap] Depositing to Pool AB: {} A, {} B",
+        soroswap_ab_a,
+        soroswap_ab_b
+    );
+    provide_liquidity_soroswap(
+        &env,
+        &pair_ab_address,
+        &admin,
+        &token_a,
+        &token_b,
+        soroswap_ab_a,
+        soroswap_ab_b,
+    );
+    std::println!(
+        "[Soroswap] Minting {} of token B and {} of token C for Pool BC",
+        soroswap_bc_b,
+        soroswap_bc_c
+    );
     mint_and_approve(&env, &admin, &token_b, soroswap_bc_b, &pair_bc_address);
     mint_and_approve(&env, &admin, &token_c, soroswap_bc_c, &pair_bc_address);
-    std::println!("[Soroswap] Depositing to Pool BC: {} B, {} C", soroswap_bc_b, soroswap_bc_c);
-    provide_liquidity_soroswap(&env, &pair_bc_address, &admin, &token_b, &token_c, soroswap_bc_b, soroswap_bc_c);
-    std::println!("soroswap environment setup complete. Pools: {:?}, {:?}, router: {:?}, factory: {:?}", pair_ab_address, pair_bc_address, soroswap_router_id, soroswap_factory_id);
+    std::println!(
+        "[Soroswap] Depositing to Pool BC: {} B, {} C",
+        soroswap_bc_b,
+        soroswap_bc_c
+    );
+    provide_liquidity_soroswap(
+        &env,
+        &pair_bc_address,
+        &admin,
+        &token_b,
+        &token_c,
+        soroswap_bc_b,
+        soroswap_bc_c,
+    );
+    std::println!(
+        "soroswap environment setup complete. Pools: {:?}, {:?}, router: {:?}, factory: {:?}",
+        pair_ab_address,
+        pair_bc_address,
+        soroswap_router_id,
+        soroswap_factory_id
+    );
     let soroswap_amm = AmmInfrastructure {
         name: "Soroswap".into_val(env),
         factory_id: soroswap_factory_id,
@@ -433,8 +482,16 @@ pub fn setup_aqua_environment(
     let pool_hash = env.deployer().upload_contract_wasm(AQUA_POOL_CONSTANT_WASM);
     let stableswap_pool_hash = env.deployer().upload_contract_wasm(AQUA_STABLE_POOL_WASM);
     let token_hash = env.deployer().upload_contract_wasm(TOKEN_WASM);
-    let reward_token = TokenClient::new(env, &env.register_stellar_asset_contract_v2(admin.clone()).address());
-    let reward_boost_token = TokenClient::new(env, &env.register_stellar_asset_contract_v2(admin.clone()).address());
+    let reward_token = TokenClient::new(
+        env,
+        &env.register_stellar_asset_contract_v2(admin.clone())
+            .address(),
+    );
+    let reward_boost_token = TokenClient::new(
+        env,
+        &env.register_stellar_asset_contract_v2(admin.clone())
+            .address(),
+    );
     // Mint reward tokens to the user for pool creation payment
     let initial_mint_amount: i128 = 10_000_000 * 10_000_000;
     reward_token.mint(user, &initial_mint_amount);
@@ -458,10 +515,14 @@ pub fn setup_aqua_environment(
         &1_0000000,
         &aqua_router.address,
     );
-    
+
     let reward_boost_feed = create_reward_boost_feed_contract(env, &admin, &admin, &admin);
-    
-    aqua_router.set_reward_boost_config(admin, &reward_boost_token.address, &reward_boost_feed.address);
+
+    aqua_router.set_reward_boost_config(
+        admin,
+        &reward_boost_token.address,
+        &reward_boost_feed.address,
+    );
 
     let plane_contract = create_plane_contract(env);
     aqua_router.set_pools_plane(admin, &plane_contract.address);
@@ -478,37 +539,118 @@ pub fn setup_aqua_environment(
     token_b_client.approve(user, &aqua_router.address, &(initial_mint_amount / 2), &200);
     token_c_client.approve(user, &aqua_router.address, &(initial_mint_amount / 2), &200);
     let aqua_tokens = Vec::from_array(env, [token_a.clone(), token_b.clone()]);
-    let (aqua_pool_ab_hash, aqua_pool_ab_address) = aqua_router.init_standard_pool(user, &aqua_tokens, &30);
+    let (aqua_pool_ab_hash, aqua_pool_ab_address) =
+        aqua_router.init_standard_pool(user, &aqua_tokens, &30);
     aqua_pool_ids.push_back(aqua_pool_ab_address.clone());
     let aqua_stable_tokens = Vec::from_array(env, [token_b.clone(), token_c.clone()]);
-    let (_aqua_stable_bc_hash, aqua_stable_bc_address) = aqua_router.init_stableswap_pool(user, &aqua_stable_tokens, &10);
+    let (_aqua_stable_bc_hash, aqua_stable_bc_address) =
+        aqua_router.init_stableswap_pool(user, &aqua_stable_tokens, &10);
     aqua_pool_ids.push_back(aqua_stable_bc_address.clone());
     // Approve the pool contracts for deposit (after creation)
-    token_a_client.approve(user, &aqua_pool_ab_address, &(initial_mint_amount / 2), &200);
-    token_b_client.approve(user, &aqua_pool_ab_address, &(initial_mint_amount / 2), &200);
-    token_b_client.approve(user, &aqua_stable_bc_address, &(initial_mint_amount / 2), &200);
-    token_c_client.approve(user, &aqua_stable_bc_address, &(initial_mint_amount / 2), &200);
-    let deposit_amounts_ab = vec![env, initial_mint_amount as u128 / 10, initial_mint_amount as u128 / 10];
-    let _ = aqua_router.deposit(user, &aqua_tokens, &aqua_pool_ab_hash, &deposit_amounts_ab, &0);
-    let deposit_amounts_bc = vec![env, initial_mint_amount as u128 / 10, initial_mint_amount as u128 / 10];
-    let _ = aqua_router.deposit(user, &aqua_stable_tokens, &_aqua_stable_bc_hash, &deposit_amounts_bc, &0);
-    std::println!("[Aqua] Minting {} of token A and {} of token B for Pool AB", aqua_ab_a, aqua_ab_b);
+    token_a_client.approve(
+        user,
+        &aqua_pool_ab_address,
+        &(initial_mint_amount / 2),
+        &200,
+    );
+    token_b_client.approve(
+        user,
+        &aqua_pool_ab_address,
+        &(initial_mint_amount / 2),
+        &200,
+    );
+    token_b_client.approve(
+        user,
+        &aqua_stable_bc_address,
+        &(initial_mint_amount / 2),
+        &200,
+    );
+    token_c_client.approve(
+        user,
+        &aqua_stable_bc_address,
+        &(initial_mint_amount / 2),
+        &200,
+    );
+    let deposit_amounts_ab = vec![
+        env,
+        initial_mint_amount as u128 / 10,
+        initial_mint_amount as u128 / 10,
+    ];
+    let _ = aqua_router.deposit(
+        user,
+        &aqua_tokens,
+        &aqua_pool_ab_hash,
+        &deposit_amounts_ab,
+        &0,
+    );
+    let deposit_amounts_bc = vec![
+        env,
+        initial_mint_amount as u128 / 10,
+        initial_mint_amount as u128 / 10,
+    ];
+    let _ = aqua_router.deposit(
+        user,
+        &aqua_stable_tokens,
+        &_aqua_stable_bc_hash,
+        &deposit_amounts_bc,
+        &0,
+    );
+    std::println!(
+        "[Aqua] Minting {} of token A and {} of token B for Pool AB",
+        aqua_ab_a,
+        aqua_ab_b
+    );
     mint_and_approve(&env, &user, &token_a, aqua_ab_a, &aqua_pool_ab_address);
     mint_and_approve(&env, &user, &token_b, aqua_ab_b, &aqua_pool_ab_address);
-    std::println!("[Aqua] Depositing to Pool AB: {} A, {} B", aqua_ab_a, aqua_ab_b);
-    provide_liquidity_aqua(&env, &aqua_pool_ab_address, &user, &token_a, &token_b, aqua_ab_a, aqua_ab_b);
-    std::println!("[Aqua] Minting {} of token B and {} of token C for Pool BC", aqua_bc_b, aqua_bc_c);
+    std::println!(
+        "[Aqua] Depositing to Pool AB: {} A, {} B",
+        aqua_ab_a,
+        aqua_ab_b
+    );
+    provide_liquidity_aqua(
+        &env,
+        &aqua_pool_ab_address,
+        &user,
+        &token_a,
+        &token_b,
+        aqua_ab_a,
+        aqua_ab_b,
+    );
+    std::println!(
+        "[Aqua] Minting {} of token B and {} of token C for Pool BC",
+        aqua_bc_b,
+        aqua_bc_c
+    );
     mint_and_approve(&env, &user, &token_b, aqua_bc_b, &aqua_stable_bc_address);
     mint_and_approve(&env, &user, &token_c, aqua_bc_c, &aqua_stable_bc_address);
-    std::println!("[Aqua] Depositing to Pool BC: {} B, {} C", aqua_bc_b, aqua_bc_c);
-    provide_liquidity_aqua(&env, &aqua_stable_bc_address, &user, &token_b, &token_c, aqua_bc_b, aqua_bc_c);
-    std::println!("Aqua pools created: {:?}, {:?}", aqua_pool_ab_address, aqua_stable_bc_address);
-    (AmmInfrastructure {
-        name: "Aqua".into_val(env),
-        factory_id: aqua_router_id.clone(),
-        router_id: Some(aqua_router_id.clone()),
-        pool_ids: aqua_pool_ids,
-    }, aqua_router_id)
+    std::println!(
+        "[Aqua] Depositing to Pool BC: {} B, {} C",
+        aqua_bc_b,
+        aqua_bc_c
+    );
+    provide_liquidity_aqua(
+        &env,
+        &aqua_stable_bc_address,
+        &user,
+        &token_b,
+        &token_c,
+        aqua_bc_b,
+        aqua_bc_c,
+    );
+    std::println!(
+        "Aqua pools created: {:?}, {:?}",
+        aqua_pool_ab_address,
+        aqua_stable_bc_address
+    );
+    (
+        AmmInfrastructure {
+            name: "Aqua".into_val(env),
+            factory_id: aqua_router_id.clone(),
+            router_id: Some(aqua_router_id.clone()),
+            pool_ids: aqua_pool_ids,
+        },
+        aqua_router_id,
+    )
 }
 
 pub fn setup_comet_environment(
@@ -523,8 +665,8 @@ pub fn setup_comet_environment(
     // --- Comet Setup ---
     // Pool AB: 7:1 price, 80/20 weights
     let comet_ab_a = 2_800_000_000_000i128; // 2.8M A (7 decimals)
-    let comet_ab_b = 100_000_000_000i128;   // 0.1M B (7 decimals)
-    // Pool BC: 1:1 price, 50/50 weights
+    let comet_ab_b = 100_000_000_000i128; // 0.1M B (7 decimals)
+                                          // Pool BC: 1:1 price, 50/50 weights
     let comet_bc_b = 1_000_000_000_000i128;
     let comet_bc_c = 1_000_000_000_000i128;
 
@@ -570,16 +712,36 @@ pub fn setup_comet_environment(
     );
     std::println!("[Comet] Pool BC address: {:?}", pool_bc);
     comet_pool_ids.push_back(pool_bc.clone());
-    std::println!("[Comet] Minting {} of token A and {} of token B for Pool AB", comet_ab_a, comet_ab_b);
+    std::println!(
+        "[Comet] Minting {} of token A and {} of token B for Pool AB",
+        comet_ab_a,
+        comet_ab_b
+    );
     mint_and_approve(&env, &user, &token_a, comet_ab_a, &pool_ab);
     mint_and_approve(&env, &user, &token_b, comet_ab_b, &pool_ab);
-    std::println!("[Comet] Depositing to Pool AB: {} A, {} B", comet_ab_a, comet_ab_b);
-    provide_liquidity_comet(&env, &pool_ab, &user, &token_a, &token_b, comet_ab_a, comet_ab_b);
-    std::println!("[Comet] Minting {} of token B and {} of token C for Pool BC", comet_bc_b, comet_bc_c);
+    std::println!(
+        "[Comet] Depositing to Pool AB: {} A, {} B",
+        comet_ab_a,
+        comet_ab_b
+    );
+    provide_liquidity_comet(
+        &env, &pool_ab, &user, &token_a, &token_b, comet_ab_a, comet_ab_b,
+    );
+    std::println!(
+        "[Comet] Minting {} of token B and {} of token C for Pool BC",
+        comet_bc_b,
+        comet_bc_c
+    );
     mint_and_approve(&env, &user, &token_b, comet_bc_b, &pool_bc);
     mint_and_approve(&env, &user, &token_c, comet_bc_c, &pool_bc);
-    std::println!("[Comet] Depositing to Pool BC: {} B, {} C", comet_bc_b, comet_bc_c);
-    provide_liquidity_comet(&env, &pool_bc, &user, &token_b, &token_c, comet_bc_b, comet_bc_c);
+    std::println!(
+        "[Comet] Depositing to Pool BC: {} B, {} C",
+        comet_bc_b,
+        comet_bc_c
+    );
+    provide_liquidity_comet(
+        &env, &pool_bc, &user, &token_b, &token_c, comet_bc_b, comet_bc_c,
+    );
     std::println!("[Comet] All pools created: {:?}", comet_pool_ids);
     AmmInfrastructure {
         name: "Comet".into_val(env),
@@ -609,8 +771,16 @@ fn print_amm_pools_and_reserves(env: &Env, amm: &AmmInfrastructure, label: &str,
             let lp_token = pool.address;
             let user_lp_balance = TokenClient::new(env, &lp_token).balance(user);
             std::println!("[REPORT - Soroswap]     Tokens: {:?}, {:?}", token0, token1);
-            std::println!("[REPORT - Soroswap]     Reserves: {:?}, {:?}", reserve_0, reserve_1);
-            std::println!("[REPORT - Soroswap]     LP Token: {:?} User LP Balance: {:?}", lp_token, user_lp_balance);
+            std::println!(
+                "[REPORT - Soroswap]     Reserves: {:?}, {:?}",
+                reserve_0,
+                reserve_1
+            );
+            std::println!(
+                "[REPORT - Soroswap]     LP Token: {:?} User LP Balance: {:?}",
+                lp_token,
+                user_lp_balance
+            );
         } else if label == "Aqua" {
             let pool = AquaPoolClient::new(env, &pool_addr);
             let lp_token_id = pool.share_id();
@@ -620,28 +790,56 @@ fn print_amm_pools_and_reserves(env: &Env, amm: &AmmInfrastructure, label: &str,
             let user_lp_balance = share_token.balance(&user);
             std::println!("[REPORT - Aqua]     Tokens: {:?}", tokens);
             std::println!("[REPORT - Aqua]     Reserves: {:?}", reserves);
-            std::println!("[REPORT - Aqua]     Pool: {:?}  LP Token: {:?} User LP Balance: {:?}", pool.address, lp_token_id, user_lp_balance);
+            std::println!(
+                "[REPORT - Aqua]     Pool: {:?}  LP Token: {:?} User LP Balance: {:?}",
+                pool.address,
+                lp_token_id,
+                user_lp_balance
+            );
         } else if label == "Phoenix" {
             let pool = PhoenixPoolClient::new(env, &pool_addr);
             let info = pool.query_pool_info();
             let lp_token = info.asset_lp_share.address.clone();
             let user_lp_balance = TokenClient::new(env, &lp_token).balance(user);
             std::println!("[REPORT - Phoenix]     Pool Info: {:?}", info);
-            std::println!("[REPORT - Phoenix]     Asset A: {:?} amount: {:?}", info.asset_a.address, info.asset_a.amount);
-            std::println!("[REPORT - Phoenix]     Asset B: {:?} amount: {:?}", info.asset_b.address, info.asset_b.amount);
-            std::println!("[REPORT - Phoenix]     LP Share: {:?} amount: {:?}", info.asset_lp_share.address, info.asset_lp_share.amount);
-            std::println!("[REPORT - Phoenix]     User LP Balance: {:?}", user_lp_balance);
+            std::println!(
+                "[REPORT - Phoenix]     Asset A: {:?} amount: {:?}",
+                info.asset_a.address,
+                info.asset_a.amount
+            );
+            std::println!(
+                "[REPORT - Phoenix]     Asset B: {:?} amount: {:?}",
+                info.asset_b.address,
+                info.asset_b.amount
+            );
+            std::println!(
+                "[REPORT - Phoenix]     LP Share: {:?} amount: {:?}",
+                info.asset_lp_share.address,
+                info.asset_lp_share.amount
+            );
+            std::println!(
+                "[REPORT - Phoenix]     User LP Balance: {:?}",
+                user_lp_balance
+            );
         } else if label == "Comet" {
             let pool = CometPoolClient::new(env, &pool_addr);
             let tokens = pool.get_tokens();
             std::println!("[REPORT - Comet]     Tokens: {:?}", tokens);
             for token in tokens.iter() {
                 let bal = pool.get_balance(&token);
-                std::println!("[REPORT - Comet]       Balance for token {:?}: {:?}", token, bal);
+                std::println!(
+                    "[REPORT - Comet]       Balance for token {:?}: {:?}",
+                    token,
+                    bal
+                );
             }
             let lp_token = pool.address;
             let user_lp_balance = TokenClient::new(env, &lp_token).balance(user);
-            std::println!("[REPORT - Comet]     LP Token: {:?} User LP Balance: {:?}", lp_token, user_lp_balance);
+            std::println!(
+                "[REPORT - Comet]     LP Token: {:?} User LP Balance: {:?}",
+                lp_token,
+                user_lp_balance
+            );
         }
     }
 }
@@ -652,7 +850,15 @@ fn mint_and_approve(env: &Env, user: &Address, token: &Address, amount: i128, sp
     token_client.approve(user, spender, &amount, &200);
 }
 
-fn provide_liquidity_soroswap(env: &Env, pair: &Address, user: &Address, token_a: &Address, token_b: &Address, amount_a: i128, amount_b: i128) {
+fn provide_liquidity_soroswap(
+    env: &Env,
+    pair: &Address,
+    user: &Address,
+    token_a: &Address,
+    token_b: &Address,
+    amount_a: i128,
+    amount_b: i128,
+) {
     let pair_client = SoroswapPairClient::new(env, pair);
     let token_a_client = TokenClient::new(env, token_a);
     let token_b_client = TokenClient::new(env, token_b);
@@ -660,7 +866,15 @@ fn provide_liquidity_soroswap(env: &Env, pair: &Address, user: &Address, token_a
     token_b_client.transfer(user, pair, &amount_b);
 }
 
-fn provide_liquidity_aqua(env: &Env, pool: &Address, user: &Address, token_a: &Address, token_b: &Address, amount_a: i128, amount_b: i128) {
+fn provide_liquidity_aqua(
+    env: &Env,
+    pool: &Address,
+    user: &Address,
+    token_a: &Address,
+    token_b: &Address,
+    amount_a: i128,
+    amount_b: i128,
+) {
     let pool_client = AquaPoolClient::new(env, pool);
     let token_a_client = TokenClient::new(env, token_a);
     let token_b_client = TokenClient::new(env, token_b);
@@ -669,7 +883,15 @@ fn provide_liquidity_aqua(env: &Env, pool: &Address, user: &Address, token_a: &A
     pool_client.deposit(user, &vec![env, amount_a as u128, amount_b as u128], &0u128);
 }
 
-fn provide_liquidity_phoenix(env: &Env, pool: &Address, user: &Address, token_a: &Address, token_b: &Address, amount_a: i128, amount_b: i128) {
+fn provide_liquidity_phoenix(
+    env: &Env,
+    pool: &Address,
+    user: &Address,
+    token_a: &Address,
+    token_b: &Address,
+    amount_a: i128,
+    amount_b: i128,
+) {
     let pool_client = PhoenixPoolClient::new(env, pool);
     let token_a_client = TokenClient::new(env, token_a);
     let token_b_client = TokenClient::new(env, token_b);
@@ -688,16 +910,40 @@ fn provide_liquidity_phoenix(env: &Env, pool: &Address, user: &Address, token_a:
     );
 }
 
-fn provide_liquidity_phoenix_stable(env: &Env, pool: &Address, user: &Address, token_a: &Address, token_b: &Address, amount_a: i128, amount_b: i128) {
+fn provide_liquidity_phoenix_stable(
+    env: &Env,
+    pool: &Address,
+    user: &Address,
+    token_a: &Address,
+    token_b: &Address,
+    amount_a: i128,
+    amount_b: i128,
+) {
     let pool_client = PhoenixPoolStableClient::new(env, pool);
     let token_a_client = TokenClient::new(env, token_a);
     let token_b_client = TokenClient::new(env, token_b);
     token_a_client.transfer(user, pool, &amount_a);
     token_b_client.transfer(user, pool, &amount_b);
-    pool_client.provide_liquidity(user, &amount_a, &amount_b, &None, &None::<u64>, &None::<u128>, &false);
+    pool_client.provide_liquidity(
+        user,
+        &amount_a,
+        &amount_b,
+        &None,
+        &None::<u64>,
+        &None::<u128>,
+        &false,
+    );
 }
 
-fn provide_liquidity_comet(env: &Env, pool: &Address, user: &Address, token_a: &Address, token_b: &Address, amount_a: i128, amount_b: i128) {
+fn provide_liquidity_comet(
+    env: &Env,
+    pool: &Address,
+    user: &Address,
+    token_a: &Address,
+    token_b: &Address,
+    amount_a: i128,
+    amount_b: i128,
+) {
     let pool_client = CometPoolClient::new(env, pool);
     let token_a_client = TokenClient::new(env, token_a);
     let token_b_client = TokenClient::new(env, token_b);
@@ -713,7 +959,11 @@ fn get_reserve_soroswap(pair: &Address, token: &Address) -> i128 {
     let env = pair.env();
     let pair_client = SoroswapPairClient::new(&env, pair);
     let (r0, r1) = pair_client.get_reserves();
-    if pair_client.token_0() == *token { r0 } else { r1 }
+    if pair_client.token_0() == *token {
+        r0
+    } else {
+        r1
+    }
 }
 
 fn get_lp_balance_soroswap(pair: &Address, user: &Address) -> i128 {
@@ -727,7 +977,11 @@ fn get_reserve_aqua(pool: &Address, token: &Address) -> i128 {
     let pool_client = AquaPoolClient::new(&env, pool);
     let tokens = pool_client.get_tokens();
     let reserves = pool_client.get_reserves();
-    if tokens.get(0).unwrap() == *token { reserves.get(0).unwrap() as i128 } else { reserves.get(1).unwrap() as i128 }
+    if tokens.get(0).unwrap() == *token {
+        reserves.get(0).unwrap() as i128
+    } else {
+        reserves.get(1).unwrap() as i128
+    }
 }
 
 fn get_lp_balance_aqua(pool: &Address, user: &Address) -> i128 {
@@ -742,7 +996,11 @@ fn get_reserve_phoenix(pool: &Address, token: &Address) -> i128 {
     let env = pool.env();
     let pool_client = PhoenixPoolClient::new(&env, pool);
     let info = pool_client.query_pool_info();
-    if info.asset_a.address == *token { info.asset_a.amount } else { info.asset_b.amount }
+    if info.asset_a.address == *token {
+        info.asset_a.amount
+    } else {
+        info.asset_b.amount
+    }
 }
 
 fn get_lp_balance_phoenix(pool: &Address, user: &Address) -> i128 {
@@ -787,19 +1045,37 @@ impl<'a> HoopsTestEnvironment<'a> {
         let initial_mint_amount: i128 = 10_000_000 * 10_000_000; // 10M tokens with 7 decimals
 
         std::println!("[SETUP] Minting tokens to admin and user");
-        token_a_admin.mint(&admin, &initial_mint_amount); std::println!("[LOG] Minted {} TokenA to {:?}", initial_mint_amount, admin);
-        token_b_admin.mint(&admin, &initial_mint_amount); std::println!("[LOG] Minted {} TokenB to {:?}", initial_mint_amount, admin);
-        token_c_admin.mint(&admin, &initial_mint_amount); std::println!("[LOG] Minted {} TokenC to {:?}", initial_mint_amount, admin);
-        token_a_admin.mint(&user, &initial_mint_amount); std::println!("[LOG] Minted {} TokenA to {:?}", initial_mint_amount, user);
-        token_b_admin.mint(&user, &initial_mint_amount); std::println!("[LOG] Minted {} TokenB to {:?}", initial_mint_amount, user);
-        token_c_admin.mint(&user, &initial_mint_amount); std::println!("[LOG] Minted {} TokenC to {:?}", initial_mint_amount, user);
+        token_a_admin.mint(&admin, &initial_mint_amount);
+        std::println!("[LOG] Minted {} TokenA to {:?}", initial_mint_amount, admin);
+        token_b_admin.mint(&admin, &initial_mint_amount);
+        std::println!("[LOG] Minted {} TokenB to {:?}", initial_mint_amount, admin);
+        token_c_admin.mint(&admin, &initial_mint_amount);
+        std::println!("[LOG] Minted {} TokenC to {:?}", initial_mint_amount, admin);
+        token_a_admin.mint(&user, &initial_mint_amount);
+        std::println!("[LOG] Minted {} TokenA to {:?}", initial_mint_amount, user);
+        token_b_admin.mint(&user, &initial_mint_amount);
+        std::println!("[LOG] Minted {} TokenB to {:?}", initial_mint_amount, user);
+        token_c_admin.mint(&user, &initial_mint_amount);
+        std::println!("[LOG] Minted {} TokenC to {:?}", initial_mint_amount, user);
 
         std::println!("[SETUP] Setting up Soroswap environment");
         let (soroswap_amm, soroswap_router, soroswap_router_id) = setup_soroswap_environment(
-            &env, &admin, &user, &token_a_client.address, &token_b_client.address, &token_c_client.address, initial_mint_amount
+            &env,
+            &admin,
+            &user,
+            &token_a_client.address,
+            &token_b_client.address,
+            &token_c_client.address,
+            initial_mint_amount,
         );
-        std::println!("[LOG] Soroswap router deployed at: {:?}", soroswap_router_id);
-        std::println!("[LOG] Soroswap factory deployed at: {:?}", soroswap_amm.factory_id);
+        std::println!(
+            "[LOG] Soroswap router deployed at: {:?}",
+            soroswap_router_id
+        );
+        std::println!(
+            "[LOG] Soroswap factory deployed at: {:?}",
+            soroswap_amm.factory_id
+        );
         for (i, pool) in soroswap_amm.pool_ids.iter().enumerate() {
             std::println!("[LOG] Soroswap pool {} deployed at: {:?}", i, pool);
         }
@@ -807,10 +1083,18 @@ impl<'a> HoopsTestEnvironment<'a> {
 
         std::println!("[SETUP] Setting up Aqua environment");
         let (aqua_amm, aqua_router_id) = setup_aqua_environment(
-            &env, &admin, &user, &token_a_client.address, &token_b_client.address, &token_c_client.address
+            &env,
+            &admin,
+            &user,
+            &token_a_client.address,
+            &token_b_client.address,
+            &token_c_client.address,
         );
         std::println!("[LOG] Aqua router deployed at: {:?}", aqua_router_id);
-        std::println!("[LOG] Aqua factory (router) deployed at: {:?}", aqua_amm.factory_id);
+        std::println!(
+            "[LOG] Aqua factory (router) deployed at: {:?}",
+            aqua_amm.factory_id
+        );
         for (i, pool) in aqua_amm.pool_ids.iter().enumerate() {
             std::println!("[LOG] Aqua pool {} deployed at: {:?}", i, pool);
         }
@@ -819,7 +1103,10 @@ impl<'a> HoopsTestEnvironment<'a> {
         std::println!("[SETUP] Deploying Phoenix factory");
         let phoenix_factory = deploy_phoenix_factory_contract(&env, Some(admin.clone()));
         let phoenix_factory_id = phoenix_factory.address.clone();
-        std::println!("[LOG] Phoenix factory deployed at: {:?}", phoenix_factory_id);
+        std::println!(
+            "[LOG] Phoenix factory deployed at: {:?}",
+            phoenix_factory_id
+        );
         std::println!("[SETUP] Setting up Phoenix pools");
         let phoenix_amm = set_phoenix_amm_infra(
             &env,
@@ -837,16 +1124,72 @@ impl<'a> HoopsTestEnvironment<'a> {
         let phoenix_ab_b = 1_000_000_000_000i128;
         let phoenix_bc_b = 999_000_000_000i128;
         let phoenix_bc_c = 1_000_000_000_000i128;
-        std::println!("[Phoenix] Minting {} of token A and {} of token B for Pool AB", phoenix_ab_a, phoenix_ab_b);
-        mint_and_approve(&env, &admin, &token_a_client.address, phoenix_ab_a, &phoenix_amm.pool_ids.get(0).unwrap());
-        mint_and_approve(&env, &admin, &token_b_client.address, phoenix_ab_b, &phoenix_amm.pool_ids.get(0).unwrap());
-        std::println!("[Phoenix] Depositing to Pool AB: {} A, {} B", phoenix_ab_a, phoenix_ab_b);
-        provide_liquidity_phoenix(&env, &phoenix_amm.pool_ids.get(0).unwrap(), &admin, &token_a_client.address, &token_b_client.address, phoenix_ab_a, phoenix_ab_b);
-        std::println!("[Phoenix] Minting {} of token B and {} of token C for Pool BC", phoenix_bc_b, phoenix_bc_c);
-        mint_and_approve(&env, &admin, &token_b_client.address, phoenix_bc_b, &phoenix_amm.pool_ids.get(1).unwrap());
-        mint_and_approve(&env, &admin, &token_c_client.address, phoenix_bc_c, &phoenix_amm.pool_ids.get(1).unwrap());
-        std::println!("[Phoenix] Depositing to Pool BC: {} B, {} C", phoenix_bc_b, phoenix_bc_c);
-        provide_liquidity_phoenix_stable(&env, &phoenix_amm.pool_ids.get(1).unwrap(), &admin, &token_b_client.address, &token_c_client.address, phoenix_bc_b, phoenix_bc_c);
+        std::println!(
+            "[Phoenix] Minting {} of token A and {} of token B for Pool AB",
+            phoenix_ab_a,
+            phoenix_ab_b
+        );
+        mint_and_approve(
+            &env,
+            &admin,
+            &token_a_client.address,
+            phoenix_ab_a,
+            &phoenix_amm.pool_ids.get(0).unwrap(),
+        );
+        mint_and_approve(
+            &env,
+            &admin,
+            &token_b_client.address,
+            phoenix_ab_b,
+            &phoenix_amm.pool_ids.get(0).unwrap(),
+        );
+        std::println!(
+            "[Phoenix] Depositing to Pool AB: {} A, {} B",
+            phoenix_ab_a,
+            phoenix_ab_b
+        );
+        provide_liquidity_phoenix(
+            &env,
+            &phoenix_amm.pool_ids.get(0).unwrap(),
+            &admin,
+            &token_a_client.address,
+            &token_b_client.address,
+            phoenix_ab_a,
+            phoenix_ab_b,
+        );
+        std::println!(
+            "[Phoenix] Minting {} of token B and {} of token C for Pool BC",
+            phoenix_bc_b,
+            phoenix_bc_c
+        );
+        mint_and_approve(
+            &env,
+            &admin,
+            &token_b_client.address,
+            phoenix_bc_b,
+            &phoenix_amm.pool_ids.get(1).unwrap(),
+        );
+        mint_and_approve(
+            &env,
+            &admin,
+            &token_c_client.address,
+            phoenix_bc_c,
+            &phoenix_amm.pool_ids.get(1).unwrap(),
+        );
+        std::println!(
+            "[Phoenix] Depositing to Pool BC: {} B, {} C",
+            phoenix_bc_b,
+            phoenix_bc_c
+        );
+        provide_liquidity_phoenix_stable(
+            &env,
+            &phoenix_amm.pool_ids.get(1).unwrap(),
+            &admin,
+            &token_b_client.address,
+            &token_c_client.address,
+            phoenix_bc_b,
+            phoenix_bc_c,
+        );
         std::println!("[SETUP] Phoenix environment ready");
 
         // --- Comet Setup ---
@@ -860,7 +1203,10 @@ impl<'a> HoopsTestEnvironment<'a> {
             &token_c_client.address,
             initial_mint_amount,
         );
-        std::println!("[LOG] Comet factory deployed at: {:?}", comet_amm.factory_id);
+        std::println!(
+            "[LOG] Comet factory deployed at: {:?}",
+            comet_amm.factory_id
+        );
         for (i, pool) in comet_amm.pool_ids.iter().enumerate() {
             std::println!("[LOG] Comet pool {} deployed at: {:?}", i, pool);
         }
@@ -871,7 +1217,10 @@ impl<'a> HoopsTestEnvironment<'a> {
         let soroswap_adapter_id = env.register(SOROSWAP_ADAPTER_WASM, ());
         let soroswap_adapter = SoroswapAdapterClient::new(&env, &soroswap_adapter_id);
         soroswap_adapter.initialize(&3, &soroswap_router_id);
-        std::println!("[LOG] Soroswap adapter deployed at: {:?}", soroswap_adapter_id);
+        std::println!(
+            "[LOG] Soroswap adapter deployed at: {:?}",
+            soroswap_adapter_id
+        );
         std::println!("[SETUP] Soroswap adapter initialized");
 
         std::println!("[SETUP] Deploying Aqua adapter");
@@ -880,7 +1229,33 @@ impl<'a> HoopsTestEnvironment<'a> {
         aqua_adapter.initialize(&0, &aqua_router_id);
         std::println!("[LOG] Aqua adapter deployed at: {:?}", aqua_adapter_id);
         std::println!("[SETUP] Aqua adapter initialized");
+  // Register Aqua pools with the adapter and log
+        let tokens_ab = Vec::from_array(&env, [token_a_client.address.clone(), token_b_client.address.clone()]);
+        let aqua_pool_ab_address = aqua_amm.pool_ids.get(0).unwrap();
+        let aqua_pool_bc_address = aqua_amm.pool_ids.get(1).unwrap();
+        
+        let pool_client_ab = AquaPoolClient::new(&env, &aqua_pool_ab_address);
+        let pool_client_bc = AquaPoolClient::new(&env, &aqua_pool_bc_address);
+        let aqua_pool_ab_lp_token_address = pool_client_ab.share_id();
+        let aqua_pool_bc_lp_token_address = pool_client_bc.share_id();
+        std::println!("AQUA AB LP: {:?}, POOL: {:?}, BC LP: {:?}, BCPOOL: {:?}", aqua_pool_ab_lp_token_address, aqua_pool_ab_address, aqua_pool_bc_lp_token_address, aqua_pool_bc_address);
+        let pool_info_ab = AquaPoolInfo {
+            pool_address: aqua_pool_ab_address.clone(),
+            lp_token_address: aqua_pool_ab_lp_token_address.clone(),
+        };
+        aqua_adapter.set_pool_for_tokens(&tokens_ab, &pool_info_ab);
+        std::println!("[SETUP] Registered Aqua pool {:?} for tokens {:?}, with lp: {:?}", aqua_pool_ab_address, tokens_ab, aqua_pool_ab_lp_token_address);
 
+        let tokens_bc = Vec::from_array(&env, [token_b_client.address.clone(), token_c_client.address.clone()]);
+        let pool_info_bc = AquaPoolInfo {
+            pool_address: aqua_pool_bc_address.clone(),
+                        lp_token_address: aqua_pool_bc_lp_token_address.clone(),
+        };
+        aqua_adapter.set_pool_for_tokens(&tokens_bc, &pool_info_bc);
+        std::println!("[SETUP] Registered Aqua pool {:?} for tokens {:?}, with lp {:?}", aqua_pool_bc_address, tokens_bc, aqua_pool_bc_lp_token_address);
+        std::println!("[SETUP] Aqua environment ready");
+
+        
         std::println!("[SETUP] Deploying Phoenix adapter");
         let phoenix_adapter_id = env.register(PHOENIX_ADAPTER_WASM, ());
         let phoenix_adapter = PhoenixAdapterClient::new(&env, &phoenix_adapter_id);
@@ -889,7 +1264,10 @@ impl<'a> HoopsTestEnvironment<'a> {
         } else {
             phoenix_adapter.initialize(&2, &phoenix_factory_id);
         }
-        std::println!("[LOG] Phoenix adapter deployed at: {:?}", phoenix_adapter_id);
+        std::println!(
+            "[LOG] Phoenix adapter deployed at: {:?}",
+            phoenix_adapter_id
+        );
         std::println!("[SETUP] Phoenix adapter initialized");
 
         std::println!("[SETUP] Deploying Comet adapter");
@@ -908,7 +1286,11 @@ impl<'a> HoopsTestEnvironment<'a> {
             let pool_client = CometPoolClient::new(&env, &pool_addr);
             let tokens = pool_client.get_tokens();
             comet_adapter.set_pool_for_tokens(&tokens, &pool_addr);
-            std::println!("[SETUP] Registered Comet pool {:?} for tokens {:?}", pool_addr, tokens);
+            std::println!(
+                "[SETUP] Registered Comet pool {:?} for tokens {:?}",
+                pool_addr,
+                tokens
+            );
         }
 
         let adapters = AdapterContracts {
@@ -955,7 +1337,7 @@ impl<'a> HoopsTestEnvironment<'a> {
 #[test]
 fn test_environment_setup_placeholders() {
     let _test_env = HoopsTestEnvironment::setup();
-    
+
 }*/
 
 #[test]
@@ -1011,93 +1393,67 @@ fn test_setup_verification() {
 #[test]
 fn test_all_adapters_all_functions() {
     use std::panic::AssertUnwindSafe;
-    
+
     let test_env = HoopsTestEnvironment::setup();
     let mut failures = 0;
-    // Soroswap
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_swap_exact_in(&test_env))) {
-        std::println!("[FAIL][SOROSWAP][swap_exact_in]: {:?}", e); failures += 1;
-    }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_swap_exact_out(&test_env))) {
-        std::println!("[FAIL][SOROSWAP][swap_exact_out]: {:?}", e); failures += 1;
-    }
-
-    let lp = match std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_add_liquidity(&test_env))) {
-        Ok(lp) => lp,
+// Soroswap
+    let mut soroswap_failures = 0;
+    std::println!("[TEST] Running Soroswap adapter tests");
+    soroswap_failures += match std::panic::catch_unwind(AssertUnwindSafe(|| {
+        crate::tests::soroswap_adapter_tests::test_soroswap_adapter(&test_env, soroswap_failures)
+    })) {
+        Ok(soroswap_failures) => soroswap_failures,
         Err(e) => {
-            std::println!("[FAIL][SOROSWAP][add_liquidity]: {:?}", e); failures += 1;
-            0 // Default value if the test fails
+            std::println!("*** ERROR RUNNING SOROSWAP ADAPTER TESTS ***");
+            4 // Default value if the test fails
         }
     };
-    // Only run remove_liquidity if add_liquidity succeeded (lp > 0)
-    if lp > 0 {
-        if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::soroswap_adapter_tests::run_remove_liquidity(&test_env, lp))) {
-            std::println!("[FAIL][SOROSWAP][remove_liquidity]: {:?}", e); failures += 1;
-        }
-    } else {
-        std::println!("[INFO][SOROSWAP] add liquidity failed, skipping remove");
-    }
+    std::println!("[TEST] Soroswap adapter tests completed with {} failures", soroswap_failures);
+    failures += soroswap_failures;
     // Comet
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_swap_exact_in(&test_env))) {
-        std::println!("[FAIL][COMET][swap_exact_in]: {:?}", e); failures += 1;
-    }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_swap_exact_out(&test_env))) {
-        std::println!("[FAIL][COMET][swap_exact_out]: {:?}", e); failures += 1;
-    }
-    
-    // Run add_liquidity and capture the LP token amount
-    let lp = match std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_add_liquidity(&test_env))) {
-        Ok(lp) => lp,
+    let mut comet_failures = 0;
+    std::println!("\n [TEST] running COMET adapter tests");
+    comet_failures += match std::panic::catch_unwind(AssertUnwindSafe(|| {
+        crate::tests::comet_adapter_tests::test_comet_adapter(&test_env, comet_failures)
+    })) {
+        Ok(comet_failures) => comet_failures,
         Err(e) => {
-            std::println!("[FAIL][COMET][add_liquidity]: {:?}", e); failures += 1;
-            0 // Default value if the test fails
+            std::println!("*** ERROR RUNNING COMET ADAPTER TESTS ***");
+            4 // Default value if the test fails
         }
     };
+    std::println!("[TEST] Comet adapter tests completed with {} failures", comet_failures);
+    failures += comet_failures;
 
-    // Only run remove_liquidity if add_liquidity succeeded (lp > 0)
-    if lp > 0 {
-        if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::comet_adapter_tests::run_remove_liquidity(&test_env, lp))) {
-            std::println!("[FAIL][COMET][remove_liquidity]: {:?}", e); failures += 1;
-        }
-    } else {
-        std::println!("[INFO][COMET] add liquidity failed, skipping remove");
-    }
-    // Aqua
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::aqua_adapter_tests::run_swap_exact_in(&test_env))) {
-        std::println!("[FAIL][AQUA][swap_exact_in]: {:?}", e); failures += 1;
-    }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::aqua_adapter_tests::run_swap_exact_out(&test_env))) {
-        std::println!("[FAIL][AQUA][swap_exact_out]: {:?}", e); failures += 1;
-    }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::aqua_adapter_tests::run_add_liquidity(&test_env))) {
-        std::println!("[FAIL][AQUA][add_liquidity]: {:?}", e); failures += 1;
-    }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::aqua_adapter_tests::run_remove_liquidity(&test_env))) {
-        std::println!("[FAIL][AQUA][remove_liquidity]: {:?}", e); failures += 1;
-    }
     // Phoenix
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_swap_exact_in(&test_env))) {
-        std::println!("[FAIL][PHOENIX][swap_exact_in]: {:?}", e); failures += 1;
-    }
-    if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_swap_exact_out(&test_env))) {
-        std::println!("[FAIL][PHOENIX][swap_exact_out]: {:?}", e); failures += 1;
-    }
-    // Run add_liquidity and capture the LP token amount
-    let lp = match std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_add_liquidity(&test_env))) {
-        Ok(lp) => lp,
+    std::println!("[TEST] Running Phoenix adapter tests");
+    let mut pho_failures = 0;
+    pho_failures += match std::panic::catch_unwind(AssertUnwindSafe(|| {
+        crate::tests::phoenix_adapter_tests::test_phoenix_adapter(&test_env, pho_failures)
+    })) {
+        Ok(pho_failures) => pho_failures,
         Err(e) => {
-            std::println!("[FAIL][PHOENIX][add_liquidity]: {:?}", e); failures += 1;
-            0 // Default value if the test fails
+            std::println!("*** ERROR RUNNING PHOENIX ADAPTER TESTS ***");
+            4 // Default value if the test fails
         }
     };
-    // Only run remove_liquidity if add_liquidity succeeded (lp > 0)
-    if lp > 0 {
-        if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| crate::tests::phoenix_adapter_tests::run_remove_liquidity(&test_env, lp))) {
-            std::println!("[FAIL][PHOENIX][remove_liquidity]: {:?}", e); failures += 1;
+    std::println!("[TEST] Phoenix adapter tests completed with {} failures", pho_failures);
+    failures += pho_failures;
+
+    // Aqua
+    std::println!("[TEST] Running Aqua adapter tests");
+    let mut aqua_failures = 0;
+    aqua_failures += match std::panic::catch_unwind(AssertUnwindSafe(|| {
+        crate::tests::aqua_adapter_tests::test_aqua_adapter(&test_env, aqua_failures)
+    })) {
+        Ok(aqua_failures) => aqua_failures,
+        Err(e) => {
+            std::println!("*** ERROR RUNNING AQUA ADAPTER TESTS ***");
+            4 // Default value if the test fails
         }
-    } else {
-        std::println!("[INFO][PHOENIX] add liquidity failed, skipping remove");
-    }
+    };std::println!("[TEST] Aqua adapter tests completed with {} failures", aqua_failures);
+    failures += aqua_failures;
+
     if failures > 0 {
         panic!("{} adapter subtests failed. See log for details.", failures);
     }
