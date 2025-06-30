@@ -1,30 +1,96 @@
 #![no_std]
 
-mod storage;
 mod event;
 mod protocol;
+mod storage;
 
-use storage::*;
 use event::*;
-use hoops_adapter_interface::{AdapterTrait, AdapterError};
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Vec};
-use protocol::AquaRouterClient;
+use hoops_adapter_interface::{AdapterError, AdapterTrait};
+use soroban_fixed_point_math::SorobanFixedPoint;
+use soroban_sdk::{contract, contractimpl, log, panic_with_error, token::Client as TokenClient, Address, BytesN, Env, Vec};
+use storage::{
+    bump, get_amm, get_pool_for_tokens, is_init, mark_init, set_amm, set_pool_for_tokens,
+    AquaPoolInfo,
+};
+
+use crate::storage::get_core_config;
 
 const PROTOCOL_ID: i128 = 0;
+pub fn get_deposit_amounts(
+    e: &Env,
+    desired_a: u128,
+    min_a: u128,
+    desired_b: u128,
+    min_b: u128,
+    reserve_a: u128,
+    reserve_b: u128,
+) -> (u128, u128) {
+    if reserve_a == 0 && reserve_b == 0 {
+        return (desired_a, desired_b);
+    }
 
+    let amount_b = desired_a.fixed_mul_floor(e, &reserve_b, &reserve_a);
+    if amount_b <= desired_b {
+        if amount_b < min_b {
+            panic_with_error!(e, AdapterError::InvalidAmount);
+        }
+        (desired_a, amount_b)
+    } else {
+        let amount_a = desired_b.fixed_mul_floor(&e, &reserve_a, &reserve_b);
+        if amount_a > desired_a || desired_a < min_a {
+            panic_with_error!(e, AdapterError::InvalidAmount);
+        }
+        (amount_a, desired_b)
+    }
+}
+
+pub fn get_shares(
+    e: &Env,
+    amt_a: u128,
+    amt_b: u128,
+    reserve_a: u128,
+    reserve_b: u128,
+    shares: u128,
+) -> u128 {
+    if reserve_a == 0 || reserve_b == 0 || shares == 0 || amt_a == 0 || amt_b == 0 {
+        return 0; // No shares can be created in an empty pool
+    }
+    let new_reserve_a = reserve_a + amt_a;
+    let new_reserve_b = reserve_b + amt_b;
+    let shares_a = amt_a.fixed_mul_floor(e, &shares, &new_reserve_a);
+    let shares_b = amt_b.fixed_mul_floor(e, &shares, &new_reserve_b);
+    shares_a.min(shares_b)
+}
 #[contract]
 pub struct AquaAdapter;
 
+pub trait AquaAdapterTrait {
+    fn set_pool_for_tokens(e: Env, tokens: Vec<Address>, info: AquaPoolInfo);
+    fn get_pool_for_tokens(e: Env, tokens: Vec<Address>) -> Option<AquaPoolInfo>;
+}
+
+#[contractimpl]
+impl AquaAdapterTrait for AquaAdapter {
+    fn set_pool_for_tokens(e: Env, tokens: Vec<Address>, info: AquaPoolInfo) {
+        set_pool_for_tokens(&e, &tokens, &info);
+    }
+    fn get_pool_for_tokens(e: Env, tokens: Vec<Address>) -> Option<AquaPoolInfo> {
+        get_pool_for_tokens(&e, &tokens)
+    }
+}
+
 #[contractimpl]
 impl AdapterTrait for AquaAdapter {
-
     fn version() -> u32 {
-        1 // Version 1 of the Aqua adapter
+        1
     }
-    /* ---------- lifecycle ---------- */
     fn initialize(e: Env, amm_id: i128, amm_addr: Address) -> Result<(), AdapterError> {
-        if is_init(&e) { return Err(AdapterError::ExternalFailure); }
-        if amm_id != PROTOCOL_ID { return Err(AdapterError::UnsupportedPair); }
+        if is_init(&e) {
+            return Err(AdapterError::AlreadyInitialized);
+        }
+        if amm_id != PROTOCOL_ID {
+            return Err(AdapterError::InvalidID);
+        }
 
         set_amm(&e, amm_addr.clone());
         mark_init(&e);
@@ -33,137 +99,198 @@ impl AdapterTrait for AquaAdapter {
         Ok(())
     }
 
-    fn upgrade(_e: Env, _hash: BytesN<32>) -> Result<(), AdapterError> {
-        // Stub: always fail for now
-        Err(AdapterError::ExternalFailure)
+    fn upgrade(e: Env, new_wasm_hash: BytesN<32>) -> Result<(), AdapterError> {
+        let config = get_core_config(&e);
+        config.admin.require_auth();
+        Ok(e.deployer().update_current_contract_wasm(new_wasm_hash))
     }
-
-    /* ---------- swaps ---------- */
     fn swap_exact_in(
         e: Env,
         amt_in: i128,
         min_out: i128,
         path: Vec<Address>,
         to: Address,
-        deadline: u64
+        deadline: u64,
     ) -> Result<i128, AdapterError> {
+        if amt_in < 0 || min_out < 0 {
+            return Err(AdapterError::InvalidAmount);
+        };
+        let amt_in = amt_in as u128;
+        let min_out = min_out as u128;
         to.require_auth();
-        if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
-        if e.ledger().timestamp()>deadline{
+        if !is_init(&e) {
             return Err(AdapterError::ExternalFailure);
         }
-
-        // Call external router with Aqua's swap_chained method
-        let router = AquaRouterClient::new(&e, &get_amm(&e)?);
-        
-        // Convert path to Aqua's swaps_chain format
-        let mut swaps_chain: Vec<(Vec<Address>, BytesN<32>, Address)> = Vec::new(&e);
-        for i in 0..(path.len() - 1) {
-            let token_in = path.get(i).unwrap();
-            let token_out = path.get(i + 1).unwrap();
-            let mut tokens = Vec::new(&e);
-            tokens.push_back(token_in);
-            tokens.push_back(token_out.clone());
-            let pool_index = BytesN::from_array(&e, &[0; 32]); // Default pool index
-            swaps_chain.push_back((tokens, pool_index, token_out));
+        if e.ledger().timestamp() > deadline {
+            return Err(AdapterError::ExternalFailure);
         }
-        
-        let amt_out = router.swap_chained(
-            &to,
-            &swaps_chain,
-            &path.get(0).unwrap(),
-            &(amt_in as u128),
-            &(min_out as u128)
+        if path.len() != 2 {
+            return Err(AdapterError::MultipathUnsupported);
+        }
+        let pool_info = get_pool_for_tokens(&e, &path).ok_or(AdapterError::UnsupportedPair)?;
+        let pool = protocol::AquaPoolClient::new(&e, &pool_info.pool_address);
+        let tokens = pool.get_tokens();
+        let in_token = path.get(0).unwrap();
+        let in_idx = if tokens.get(0).unwrap() == in_token {
+            0
+        } else {
+            1
+        };
+        let out_idx = if in_idx == 0 { 1 } else { 0 };
+        let amt_out = pool.swap(
+            &to, // user
+            &in_idx,
+            &out_idx,
+            //todo: convert all our usage of i128 as amounts to u128 for safety.
+            &amt_in, 
+            &min_out,
         );
         let amt_out_i128 = amt_out as i128;
-
-        swap(&e, SwapEvent{ amt_in, amt_out: amt_out_i128, path, to});
+        event::swap(
+            &e,
+            event::SwapEvent {
+                amt_in: amt_in as i128,
+                amt_out: amt_out_i128,
+                path,
+                to,
+            },
+        );
         bump(&e);
         Ok(amt_out_i128)
     }
 
     fn swap_exact_out(
-        e: Env, out: i128, max_in: i128, path: Vec<Address>,
-        to: Address, deadline: u64
+        e: Env,
+        out: i128,
+        max_in: i128,
+        path: Vec<Address>,
+        to: Address,
+        deadline: u64,
     ) -> Result<i128, AdapterError> {
+        if out < 0 || max_in < 0 {
+            return Err(AdapterError::InvalidAmount);
+        };
+        let out = out as u128;
+        let max_in = max_in as u128;
         to.require_auth();
-        if !is_init(&e){ return Err(AdapterError::ExternalFailure); }
-        if e.ledger().timestamp()>deadline{
+        if !is_init(&e) {
             return Err(AdapterError::ExternalFailure);
         }
-        
-        // Call external router with Aqua's swap_chained_strict_receive method
-        let router = protocol::AquaRouterClient::new(&e, &get_amm(&e)?);
-        
-        // Convert path to Aqua's swaps_chain format
-        let mut swaps_chain: Vec<(Vec<Address>, BytesN<32>, Address)> = Vec::new(&e);
-        for i in 0..(path.len() - 1) {
-            let token_in = path.get(i).unwrap();
-            let token_out = path.get(i + 1).unwrap();
-            let mut tokens = Vec::new(&e);
-            tokens.push_back(token_in);
-            tokens.push_back(token_out.clone());
-            let pool_index = BytesN::from_array(&e, &[0; 32]); // Default pool index
-            swaps_chain.push_back((tokens, pool_index, token_out));
+        if e.ledger().timestamp() > deadline {
+            return Err(AdapterError::ExternalFailure);
         }
-        
-        let amt_in = router.swap_chained_strict_receive(
-            &to,
-            &swaps_chain,
-            &path.get(0).unwrap(),
-            &(out as u128),
-            &(max_in as u128)
-        );
-        let amt_in_i128 = amt_in as i128;
+        if path.len() != 2 {
+            return Err(AdapterError::MultipathUnsupported);
+        }
+        let pool_info = get_pool_for_tokens(&e, &path).ok_or(AdapterError::UnsupportedPair)?;
+        let pool = protocol::AquaPoolClient::new(&e, &pool_info.pool_address);
+        let tokens = pool.get_tokens();
+        let in_token = path.get(0).unwrap();
+        let in_idx = if tokens.get(0).unwrap() == in_token {
+            0
+        } else {
+            1
+        };
+        let out_idx = if in_idx == 0 { 1 } else { 0 };
 
-        swap(&e, SwapEvent{ amt_in: amt_in_i128, amt_out: out, path, to });
+        let amt_in = pool.swap_strict_receive(
+            &to,
+            //todo: convert all our usage of i128 as amounts to u128 for safety.
+            &in_idx,
+            &out_idx,
+            &out,
+            &max_in,
+        );
+
+        let amt_in_i128 = amt_in as i128;
+        event::swap(
+            &e,
+            event::SwapEvent {
+                amt_in: amt_in_i128,
+                amt_out: out as i128,
+                path,
+                to,
+            },
+        );
         bump(&e);
         Ok(amt_in_i128)
     }
-
-    /* ---------- liquidity ---------- */
+ 
     fn add_liquidity(
         e: Env,
-        a: Address,
-        b: Address,
+        token_a: Address,
+        token_b: Address,
         amt_a: i128,
         amt_b: i128,
         amt_a_min: i128,
         amt_b_min: i128,
         to: Address,
-        deadline: u64
+        deadline: u64,
     ) -> Result<(i128, i128, i128), AdapterError> {
         to.require_auth();
-        if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
+        if amt_a < 0 || amt_b < 0 || amt_a_min < 0 || amt_b_min < 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        log!(&e, "testing the logging");
+        let amt_a = amt_a as u128;
+        let amt_b = amt_b as u128;
+        let amt_a_min = amt_a_min as u128;
+        let amt_b_min = amt_b_min as u128;
+        if amt_a == 0 || amt_b == 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        
+        if !is_init(&e) {
+            return Err(AdapterError::ExternalFailure);
+        }
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
         }
-        let router = protocol::AquaRouterClient::new(&e, &get_amm(&e)?);
-        let mut tokens = Vec::new(&e);
-        tokens.push_back(a.clone());
-        tokens.push_back(b.clone());
-        let mut desired_amounts = Vec::new(&e);
-        desired_amounts.push_back(amt_a as u128);
-        desired_amounts.push_back(amt_b as u128);
-        let mut min_amounts = Vec::new(&e);
-        min_amounts.push_back(amt_a_min as u128);
-        min_amounts.push_back(amt_b_min as u128);
-        let pool_index = BytesN::from_array(&e, &[0; 32]);
-        let min_shares = 1u128; // Minimum shares to accept
-        let (amounts, shares) = router.deposit(
-            &to,
-            &tokens,
-            &pool_index,
-            &desired_amounts,
-            &min_shares
+        let tokens = Vec::from_array(&e, [token_a.clone(), token_b.clone()]);
+        let pool_info = get_pool_for_tokens(&e, &tokens).ok_or(AdapterError::UnsupportedPair)?;
+        let pool = protocol::AquaPoolClient::new(&e, &pool_info.pool_address);
+        log!(&e, "Found pool for tokens: {:?}", pool_info.pool_address);
+
+        let reserves = pool.get_reserves();
+        log!(&e, "Calling get_reserves: reserves={:?}", reserves);
+        let reserve_a = reserves.get(0).unwrap();
+        let reserve_b = reserves.get(1).unwrap();
+        
+        if reserve_a == 0 && reserve_b == 0 {
+            return Err(AdapterError::ExternalFailure); // Cannot add liquidity to an empty pool yet.
+        }
+       let shares = pool.get_total_shares();
+       log!(&e, "Calling get_total_shares: shares={}", shares);
+        let (amount_a, amount_b) =
+            get_deposit_amounts(&e, amt_a, amt_b, amt_a_min, amt_b_min, reserve_a, reserve_b);
+        log!(&e, "get_deposit_amounts returned: amount_a={:?}, amount_b={:?}", amount_a, amount_b);
+        let desired_amounts = Vec::from_array(&e, [amount_a, amount_b]);
+        let min_shares = get_shares(
+            &e,
+            amount_a,
+            amount_b,
+            reserve_a,
+            reserve_b,
+            shares,
         );
-        let amount_a = amounts.get(0).unwrap() as i128;
-        let amount_b = amounts.get(1).unwrap() as i128;
+        log!(&e, "Calling get_deposit_amounts: amt_a={}, amt_b={}, amt_a_min={}, amt_b_min={}, reserve_a={}, reserve_b={}", amt_a, amt_b, amt_a_min, amt_b_min, reserve_a, reserve_b);
+        let (amount_a, amount_b) = get_deposit_amounts(&e, amt_a, amt_b, amt_a_min, amt_b_min, reserve_a, reserve_b);
+        log!(&e, "get_deposit_amounts returned: amount_a={}, amount_b={}", amount_a, amount_b);
+
+        log!(&e, "Calling get_shares: amount_a={}, amount_b={}, reserve_a={}, reserve_b={}, shares={}", amount_a, amount_b, reserve_a, reserve_b, shares);
+        
+        log!(&e, "get_shares returned: min_shares={}", min_shares);
+        if min_shares == 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let (amounts, shares) = pool.deposit(&to, &desired_amounts, &min_shares);
+        let amount_a_i128 = amounts.get(0).unwrap() as i128;
+        let amount_b_i128 = amounts.get(1).unwrap() as i128;
         let shares_i128 = shares as i128;
         bump(&e);
-        Ok((amount_a, amount_b, shares_i128))
+        Ok((amount_a_i128, amount_b_i128, shares_i128))
     }
-#[allow(unused_variables)]
+
     fn remove_liquidity(
         e: Env,
         lp: Address,
@@ -171,29 +298,41 @@ impl AdapterTrait for AquaAdapter {
         amt_a_min: i128,
         amt_b_min: i128,
         to: Address,
-        deadline: u64
+        deadline: u64,
     ) -> Result<(i128, i128), AdapterError> {
+        if lp_amt < 0 || amt_a_min < 0 || amt_b_min < 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let lp_amt = lp_amt as u128;
+        let amt_a_min = amt_a_min as u128;
+        let amt_b_min = amt_b_min as u128;
         to.require_auth();
-        if !is_init(&e) { return Err(AdapterError::ExternalFailure); }
+        if !is_init(&e) {
+            return Err(AdapterError::ExternalFailure);
+        }
         if e.ledger().timestamp() > deadline {
             return Err(AdapterError::ExternalFailure);
         }
-        let router = protocol::AquaRouterClient::new(&e, &get_amm(&e)?);
-        let tokens = Vec::new(&e);
-        // Would need to get actual tokens from pool contract
-        let pool_index = BytesN::from_array(&e, &[0; 32]);
-        let mut min_amounts = Vec::new(&e);
-        min_amounts.push_back(amt_a_min as u128);
-        min_amounts.push_back(amt_b_min as u128);
-        let amounts = router.withdraw(
+        log!(&e, "Attempting to remove liquidity from Aqua pool with lp token {:?}", lp);
+        // Find pool by LP token address
+        let pool_info = storage::get_pool_by_lp_token(&e, &lp).ok_or(AdapterError::UnsupportedPair)?;
+        log!(&e, "Found pool for LP token: {:?}", pool_info);
+        let pool = protocol::AquaPoolClient::new(&e, &pool_info.pool_address);
+        let lp_token_client = TokenClient::new(&e, &lp);
+
+        let curr_lp = lp_token_client.balance(&to);
+        if curr_lp < lp_amt as i128 {
+            return Err(AdapterError::InsufficientBalance);
+        }
+        let minimums = Vec::from_array(&e, [amt_a_min, amt_b_min]);
+
+        let amounts = pool.withdraw(
             &to,
-            &tokens,
-            &pool_index,
-            &(lp_amt as u128),
-            &min_amounts
+            &lp_amt,
+            &minimums,
         );
-        let amt_a = if amounts.len() > 0 { amounts.get(0).unwrap() as i128 } else { 0 };
-        let amt_b = if amounts.len() > 1 { amounts.get(1).unwrap() as i128 } else { 0 };
+        let amt_a = amounts.get(0).unwrap() as i128;
+        let amt_b = amounts.get(1).unwrap() as i128;
         bump(&e);
         Ok((amt_a, amt_b))
     }
