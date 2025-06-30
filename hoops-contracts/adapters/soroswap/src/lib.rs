@@ -33,10 +33,10 @@ impl AdapterTrait for SoroswapAdapter {
     /* ---------- lifecycle ---------- */
     fn initialize(e: Env, amm_id: i128, amm_addr: Address) -> Result<(), AdapterError> {
         if is_init(&e) {
-            return Err(AdapterError::ExternalFailure);
+            return Err(AdapterError::AlreadyInitialized);
         }
         if amm_id != PROTOCOL_ID {
-            return Err(AdapterError::UnsupportedPair);
+            return Err(AdapterError::InvalidID);
         }
 
         set_amm(&e, amm_addr.clone());

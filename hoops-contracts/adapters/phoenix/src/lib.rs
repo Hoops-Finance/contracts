@@ -25,8 +25,8 @@ impl AdapterTrait for PhoenixAdapter {
 
     /* ---------- lifecycle ---------- */
     fn initialize(e: Env, amm_id: i128, amm_addr: Address) -> Result<(), AdapterError> {
-        if is_init(&e) { return Err(AdapterError::ExternalFailure); }
-        if amm_id != PROTOCOL_ID { return Err(AdapterError::UnsupportedPair); }
+        if is_init(&e) { return Err(AdapterError::AlreadyInitialized); }
+        if amm_id != PROTOCOL_ID { return Err(AdapterError::InvalidID); }
 
         set_amm(&e, amm_addr.clone());
         mark_init(&e);

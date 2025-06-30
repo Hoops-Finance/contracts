@@ -6,6 +6,8 @@ use soroban_sdk::{contractclient, contractspecfn, contracterror, Address, Env, V
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum AdapterError {
+    AlreadyInitialized = 10,
+    InvalidID = 11,
     DefaultError = 100,
     UnsupportedPair = 101,
     ExternalFailure = 102,
@@ -17,7 +19,10 @@ pub enum AdapterError {
     DeadlinePassed = 205,
     NotInitialized = 206,
     InvalidArgument = 207,
-    // Add more as needed
+    MultipathUnsupported = 208,
+    InvalidAmount = 209,
+    InvalidPath = 210,
+    InsufficientBalance = 211,
 }
 
 pub struct Spec;
