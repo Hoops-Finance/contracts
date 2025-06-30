@@ -170,10 +170,9 @@ pub fn run_remove_liquidity(test_env: &HoopsTestEnvironment, lp_amt: i128) {
     assert!(after_balance_b >= amt_b_out, "User TKB balance should increase by at least amt_b_out");
 }
 
-#[test]
-pub fn test_comet_adapter_all() {
-    let test_env = HoopsTestEnvironment::setup();
-    let mut failures = 0;
+pub fn test_comet_adapter(test_env: &HoopsTestEnvironment, failures: i32) -> i32{
+
+    let mut failures = failures;
 
     if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| run_swap_exact_in(&test_env))) {
         std::println!("[FAIL][COMET][swap_exact_in]: {:?}", e); failures += 1;
@@ -200,4 +199,13 @@ pub fn test_comet_adapter_all() {
         std::println!("[INFO][COMET] add liquidity failed, skipping remove");
     }
     std::println!("[COMET] Test results: {} failures", failures);
+    failures
+}
+
+#[test]
+pub fn test_comet_adapter_all() {
+    let test_env = HoopsTestEnvironment::setup();
+    let mut failures = 0;
+    failures += test_comet_adapter(&test_env, failures);
+    assert_eq!(failures, 0, "Some Comet adapter tests failed");
 }

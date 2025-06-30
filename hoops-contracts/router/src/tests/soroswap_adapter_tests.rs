@@ -175,11 +175,9 @@ pub fn run_remove_liquidity(test_env: &HoopsTestEnvironment, lp_amt: i128) {
     assert!(after_lp_balance < before_lp_balance, "User LP balance should decrease");
 }
 
-#[test]
-pub fn test_soroswap_adapter_all() {
+pub fn test_soroswap_adapter(test_env: &HoopsTestEnvironment, failures: i32) -> i32 {
     use std::panic::AssertUnwindSafe;
-    let test_env = HoopsTestEnvironment::setup();
-    let mut failures = 0;
+    let mut failures = failures;
     if let Err(e) = std::panic::catch_unwind(AssertUnwindSafe(|| run_swap_exact_in(&test_env))) {
         std::println!("[FAIL][SOROSWAP][swap_exact_in]: {:?}", e); failures += 1;
     }
@@ -206,4 +204,15 @@ pub fn test_soroswap_adapter_all() {
     if failures > 0 {
         panic!("{} Soroswap adapter subtests failed. See log for details.", failures);
     }
+
+    failures
+}
+
+
+#[test]
+pub fn test_soroswap_adapter_all() {
+    let test_env = HoopsTestEnvironment::setup();
+    let mut failures = 0;
+   failures += test_soroswap_adapter(&test_env, failures);
+    assert_eq!(failures, 0, "Soroswap adapter tests failed with {} errors", failures);
 }
