@@ -6,7 +6,6 @@ use soroban_sdk::{
 };
 
 pub mod hoops_router {
-    // Import the router contract
     soroban_sdk::contractimport!(
         file = "../bytecodes/hoops_router.wasm"
     );
@@ -62,8 +61,8 @@ impl Account {
         Ok(())
     }
 
-    /* ---- liquidity flow (USDC in, LP out) ---- */
-    pub fn deposit_usdc(
+    /* ---- liquidity flow  (one token in, LP out) ---- */
+    pub fn deposit(
         e: Env,
         usdc: Address,
         amount: i128,
