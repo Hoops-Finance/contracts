@@ -240,6 +240,40 @@ impl AdapterTrait for CometAdapter {
        
         Ok((actual_a, actual_b))
     }
+
+    /* ---------- quotes ---------- */
+    fn quote_in(e: Env, pool_address: Address, amount_in: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
+        if !is_init(&e) {
+            return Err(AdapterError::NotInitialized);
+        }
+        if amount_in <= 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let pool = CometPoolClient::new(&e, &pool_address);
+        // get_spot_price returns the price per unit of token_in in terms of token_out
+        let price_per_unit = pool.get_spot_price(&token_in, &token_out);
+        // Total output = price_per_unit * amount_in
+        let amount_out = price_per_unit * amount_in;
+        Ok(amount_out)
+    }
+
+    fn quote_out(e: Env, pool_address: Address, amount_out: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
+        if !is_init(&e) {
+            return Err(AdapterError::NotInitialized);
+        }
+        if amount_out <= 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let pool = CometPoolClient::new(&e, &pool_address);
+        // get_spot_price returns the price per unit of token_in in terms of token_out
+        let price_per_unit = pool.get_spot_price(&token_in, &token_out);
+        // Required input = amount_out / price_per_unit
+        if price_per_unit == 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let amount_in = amount_out / price_per_unit;
+        Ok(amount_in)
+    }
 }
 
 // --- Comet math and Record struct (copied for adapter self-containment) ---

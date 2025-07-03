@@ -11,6 +11,7 @@ soroban-sdk             = { workspace = true }
 hoops-common            = { path = "../../common" }
 hoops-adapter-interface = { path = "../../adapter-interface" }
 soroban-fixed-point-math = { workspace = true }
+
 [profile.release-with-logs]
 inherits = "release"
 debug-assertions = true

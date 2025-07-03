@@ -8,7 +8,7 @@ use storage::*;
 #[allow(unused_imports)]
 use event::*;
 use hoops_adapter_interface::{AdapterTrait, AdapterError};
-use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, Vec};
+use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Vec};
 use protocol::phoenix_pair::PhoenixPoolClient;
 
 const PROTOCOL_ID: i128 = 2;
@@ -167,5 +167,32 @@ impl AdapterTrait for PhoenixAdapter {
         );
         bump(&e);
         Ok((amt_a, amt_b))
+    }
+
+    /* ---------- quotes ---------- */
+    fn quote_in(e: Env, pool_address: Address, amount_in: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
+        if !is_init(&e) {
+            return Err(AdapterError::NotInitialized);
+        }
+        if amount_in <= 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let pool = PhoenixPoolClient::new(&e, &pool_address);
+        let offer_asset = token_in.clone();
+        let resp = pool.simulate_swap(&offer_asset, &amount_in);
+        Ok(resp.total_return)
+    }
+
+    fn quote_out(e: Env, pool_address: Address, amount_out: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
+        if !is_init(&e) {
+            return Err(AdapterError::NotInitialized);
+        }
+        if amount_out <= 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let pool = PhoenixPoolClient::new(&e, &pool_address);
+        let ask_asset = token_out.clone();
+        let resp = pool.simulate_reverse_swap(&ask_asset, &amount_out);
+        Ok(resp.offer_amount)
     }
 }

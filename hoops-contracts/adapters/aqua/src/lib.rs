@@ -336,4 +336,53 @@ impl AdapterTrait for AquaAdapter {
         bump(&e);
         Ok((amt_a, amt_b))
     }
+    /* ---------- quotes ---------- */
+    fn quote_in(e: Env, pool_address: Address, amount_in: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
+        if !is_init(&e) {
+            return Err(AdapterError::NotInitialized);
+        }
+        if amount_in <= 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let pool_client = protocol::AquaPoolClient::new(&e, &pool_address);
+        let reserves = pool_client.get_reserves();
+        let pool_tokens = pool_client.get_tokens();
+        let (reserve_in, reserve_out) = if pool_tokens.get(0).unwrap() == token_in {
+            (reserves.get(0).unwrap(), reserves.get(1).unwrap())
+        } else {
+            (reserves.get(1).unwrap(), reserves.get(0).unwrap())
+        };
+        if reserve_in == 0 || reserve_out == 0 {
+            return Ok(0); // No liquidity
+        }
+        // Standard constant product formula
+        let amount_out = (amount_in as u128 * reserve_out) / (reserve_in + amount_in as u128);
+        Ok(amount_out as i128)
+    }
+
+    fn quote_out(e: Env, pool_address: Address, amount_out: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
+        if !is_init(&e) {
+            return Err(AdapterError::NotInitialized);
+        }
+        if amount_out <= 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let pool_client = protocol::AquaPoolClient::new(&e, &pool_address);
+        let reserves = pool_client.get_reserves();
+        let pool_tokens = pool_client.get_tokens();
+        let (reserve_in, reserve_out) = if pool_tokens.get(0).unwrap() == token_in {
+            (reserves.get(0).unwrap(), reserves.get(1).unwrap())
+        } else {
+            (reserves.get(1).unwrap(), reserves.get(0).unwrap())
+        };
+
+        if reserve_in == 0 || reserve_out == 0 || reserve_out <= amount_out as u128 {
+            return Err(AdapterError::InsufficientLiquidity);
+        }
+
+        // Standard constant product formula for required input
+        let amount_in = (reserve_in * amount_out as u128) / (reserve_out - amount_out as u128) + 1;
+
+        Ok(amount_in as i128)
+    }
 }

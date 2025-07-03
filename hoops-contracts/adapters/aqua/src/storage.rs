@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, Address, Env, Vec, BytesN,  Symbol, unwrap::UnwrapOptimized,symbol_short};
+use soroban_sdk::{contracttype, Address, Env, Vec, Symbol, unwrap::UnwrapOptimized,symbol_short};
 use hoops_adapter_interface::AdapterError;
 
 
@@ -8,6 +8,7 @@ enum Key { Amm, Init, Pool(PoolKey), Lp(Address) }
 
 const DAY_LEDGER: u32 = 17_280;
 const BUMP: u32 = 60 * DAY_LEDGER;
+pub const KEY_CORE_CONFIG: Symbol = symbol_short!("CONFIG");
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -31,8 +32,6 @@ pub struct AquaPoolInfo {
     pub pool_address: Address,
     pub lp_token_address: Address,
 }
-
-pub const KEY_CORE_CONFIG: Symbol = symbol_short!("CONFIG");
 
 pub fn set_core_config(e: &Env, config: &CoreConfig) {
     e.storage().instance().set(&KEY_CORE_CONFIG, config);

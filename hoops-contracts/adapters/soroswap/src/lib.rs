@@ -179,4 +179,57 @@ impl AdapterTrait for SoroswapAdapter {
         bump(&e);
         Ok((amt_a, amt_b))
     }
+
+    /* ---------- quotes ---------- */
+    fn quote_in(e: Env, pool_address: Address, amount_in: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
+        if !is_init(&e) {
+            return Err(AdapterError::NotInitialized);
+        }
+        if amount_in <= 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let pair = protocol::soroswap_pair::SoroswapPairClient::new(&e, &pool_address);
+        let (reserve_0, reserve_1) = pair.get_reserves();
+        // Canonical token order
+        let (reserve_in, reserve_out) = if token_in < token_out {
+            (reserve_0 as u128, reserve_1 as u128)
+        } else {
+            (reserve_1 as u128, reserve_0 as u128)
+        };
+        let amount_in_u128 = amount_in as u128;
+        if reserve_in == 0 || reserve_out == 0 {
+            return Ok(0);
+        }
+        // Apply 0.3% fee: amount_in_with_fee = amount_in * 997 / 1000
+        let amount_in_with_fee = amount_in_u128 * 997;
+        let numerator = amount_in_with_fee * reserve_out;
+        let denominator = reserve_in * 1000 + amount_in_with_fee;
+        let amount_out = numerator / denominator;
+        Ok(amount_out as i128)
+    }
+
+    fn quote_out(e: Env, pool_address: Address, amount_out: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
+        if !is_init(&e) {
+            return Err(AdapterError::NotInitialized);
+        }
+        if amount_out <= 0 {
+            return Err(AdapterError::InvalidAmount);
+        }
+        let pair = protocol::soroswap_pair::SoroswapPairClient::new(&e, &pool_address);
+        let (reserve_0, reserve_1) = pair.get_reserves();
+        let (reserve_in, reserve_out) = if token_in < token_out {
+            (reserve_0 as u128, reserve_1 as u128)
+        } else {
+            (reserve_1 as u128, reserve_0 as u128)
+        };
+        let amount_out_u128 = amount_out as u128;
+        if reserve_in == 0 || reserve_out == 0 || reserve_out <= amount_out_u128 {
+            return Err(AdapterError::InsufficientLiquidity);
+        }
+        // Reverse formula for required input, including fee
+        let numerator = reserve_in * amount_out_u128 * 1000;
+        let denominator = (reserve_out - amount_out_u128) * 997;
+        let amount_in = numerator / denominator + 1;
+        Ok(amount_in as i128)
+    }
 }
