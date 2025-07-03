@@ -23,6 +23,8 @@ pub enum AdapterError {
     InvalidAmount = 209,
     InvalidPath = 210,
     InsufficientBalance = 211,
+    InsufficientLiquidity = 212,
+    PairNotFound = 213,
 }
 
 pub struct Spec;
@@ -52,6 +54,11 @@ pub trait AdapterTrait {
         to: Address,
         deadline: u64,
     ) -> Result<i128, AdapterError>;
+
+
+    /* ---------- quotes ---------- */
+    fn quote_in(e: Env, pool_address: Address, amount_in: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError>;
+    fn quote_out(e: Env, pool_address: Address, amount_out: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError>;
 
     /* -------- liquidity ------------------------------------------------ */
     fn add_liquidity(
