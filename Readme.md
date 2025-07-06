@@ -1,7 +1,5 @@
 # Hoops Soroban Contracts Template
 
-**This code isn't functional yet, it is just a scaffold of what we need.**
-
 Modular Soroban smart‑contract suite that lets a user deposit one asset (e.g. USDC) and spread it across several AMMs for swaps or liquidity‑provision—currently **Aqua (0)**, **Comet (1)**, **Soroswap (2)**, and **Phoenix (3)**
 ---
 
