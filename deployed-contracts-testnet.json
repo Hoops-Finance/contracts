@@ -1,0 +1,32 @@
+{
+  "network": "testnet",
+  "deployed_at": "2026-02-11 09:19:37",
+  "deployer_address": "GCPVETBRCWVKC64RDZPHDLQ47ZVSSEFHU7L7SE4AOCLVK7AWDWAYOLP6",
+  "contracts": {
+    "adapters": {
+      "aqua": {
+        "id": 0,
+        "address": "CCP3XHZNRPZYGAV2OG5LEIHHUOB4AWPMGVWISXPYUF74ZCR7XTH3GPRP"
+      },
+      "comet": {
+        "id": 1,
+        "address": "CCALR7XY65IVITA2FNCPAQKPANEDSC4VEZ6YXSFD3AOGDLWC7KUIQWPE"
+      },
+      "phoenix": {
+        "id": 2,
+        "address": "CCYSYMB2YZGAMQJCYSMOOXJWNKJBXPHYBMQY5HMS7VMVVD6VR6VPTSUL"
+      },
+      "soroswap": {
+        "id": 3,
+        "address": "CCKOWI3RA7TA3I2PCPXCXERTLQU5SC7ZQ3NA6O67ZLIZ6GATSWYSA5Y6"
+      }
+    },
+    "core": {
+      "router": "CBYMVQWOOCMQ34Q4WGK4F7TD5QMXXTFKEPBVXUWZRHY64ILB7RECHGAM",
+      "account_deployer": "CDBKXYD3HHYUSHPRVTGDQRVAHRVDRLIUWER2KZRIAHYLPSOARXEX54Z6"
+    },
+    "test": {
+      "account": "CD4EDGTLBA4MHEBFPV44XI6C7ZUJNP7QYIMVTC64EG5HF25U347BEHK2"
+    }
+  }
+}
