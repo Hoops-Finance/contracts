@@ -37,7 +37,7 @@ pub struct LpPlan {
     pub token_b: Address,
     pub amount_a: i128,
     pub amount_b: i128,
-    pub proportion: u32,
+    pub adapter_id: i128,
 }
 
 #[contracttype]

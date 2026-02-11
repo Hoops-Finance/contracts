@@ -4,7 +4,7 @@ mod client;
 mod storage;
 mod types;
 
-use soroban_sdk::{contract, contracterror, contractimpl, token, Address, Env, String, Vec};
+use soroban_sdk::{contract, contracterror, contractimpl, panic_with_error, token, Address, Env, String, Vec};
 
 use crate::storage::{
     get_adapters, get_core_config, get_markets, set_adapters, set_core_config, set_markets,
@@ -69,7 +69,7 @@ pub trait HoopsRouterTrait {
         token_in: Address,
         token_out: Address,
     ) -> Option<crate::types::SwapQuote>;
-    fn swap(e: Env, amount: i128, token_in: Address, token_out: Address, best_hop: Address);
+    fn swap(e: Env, amount: i128, token_in: Address, token_out: Address, best_hop: Address, sender: Address, deadline: u64);
     fn provide_liquidity(
         e: Env,
         amount: i128,
@@ -211,10 +211,34 @@ impl HoopsRouterTrait for HoopsRouter {
         best
     }
 
-    fn swap(e: Env, amount: i128, token_in: Address, token_out: Address, best_hop: Address) {
-        // This function will need to find the correct adapter for the best_hop (pool address)
-        // and then call the swap function on that adapter.
-        // For now, we'll leave it as a placeholder.
+    fn swap(e: Env, amount: i128, token_in: Address, token_out: Address, best_hop: Address, sender: Address, deadline: u64) {
+        // Find the adapter for the best_hop (pool address)
+        let markets = get_markets(&e);
+        let adapters = get_adapters(&e);
+
+        // Look up the market by pool address
+        let mut adapter_id: Option<i128> = None;
+        for market in markets.iter() {
+            if market.pool_address == best_hop {
+                adapter_id = Some(market.adapter_id);
+                break;
+            }
+        }
+
+        let Some(adapter_id) = adapter_id else {
+            panic_with_error!(&e, RouterError::PoolNotFound);
+        };
+
+        let Some(adapter_address) = adapters.get(adapter_id) else {
+            panic_with_error!(&e, RouterError::InvalidID);
+        };
+
+        // Call adapter swap
+        let adapter = AdapterClient::new(&e, &adapter_address);
+        let path = Vec::from_array(&e, [token_in, token_out]);
+
+        // AdapterClient auto-unwraps the result, so this returns i128 directly or panics
+        adapter.swap_exact_in(&amount, &0i128, &path, &sender, &deadline);
     }
 
     fn provide_liquidity(
@@ -227,7 +251,7 @@ impl HoopsRouterTrait for HoopsRouter {
         // For each plan, call the appropriate adapter's add_liquidity
         let adapters = get_adapters(&e);
         for plan in lp_plans.iter() {
-            let Some(adapter_address) = adapters.get(plan.proportion as i128) else { continue; };
+            let Some(adapter_address) = adapters.get(plan.adapter_id) else { continue; };
             let adapter = AdapterClient::new(&e, &adapter_address);
             // This assumes AdapterClient has add_liquidity implemented
             adapter.add_liquidity(

@@ -106,6 +106,31 @@ impl Account {
         Ok(())
     }
 
+    /* ---- swaps ---- */
+    pub fn swap(
+        e: Env,
+        token_in: Address,
+        token_out: Address,
+        amount: i128,
+        best_hop: Address,
+        deadline: u32,
+    ) -> Result<(), AccountError> {
+        let owner = Self::owner(&e);
+        owner.require_auth();
+
+        // Approve token_in to router
+        TokenClient::new(&e, &token_in)
+            .approve(&e.current_contract_address(), &Self::router(&e), &amount, &deadline);
+
+        // Execute swap via router
+        let router_client = RouterClient::new(&e, &Self::router(&e));
+        router_client.swap(&amount, &token_in, &token_out, &best_hop, &e.current_contract_address(), &(deadline as u64));
+
+        e.events().publish(("acct", symbol_short!("swap")),
+            TokenEvent{ token: token_in, amount });
+        Ok(())
+    }
+
     /* ---- views ---- */
     pub fn owner(e: &Env)  -> Address { e.storage().instance().get(&Key::Owner).unwrap() }
     pub fn router(e: &Env) -> Address { e.storage().instance().get(&Key::Router).unwrap() }
