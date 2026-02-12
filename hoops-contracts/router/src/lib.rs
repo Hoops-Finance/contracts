@@ -4,7 +4,7 @@ mod client;
 mod storage;
 mod types;
 
-use soroban_sdk::{contract, contracterror, contractimpl, panic_with_error, token, Address, Env, String, Vec};
+use soroban_sdk::{contract, contracterror, contractimpl, panic_with_error, token, Address, Env, IntoVal, String, Symbol, Val, Vec};
 
 use crate::storage::{
     get_adapters, get_core_config, get_markets, set_adapters, set_core_config, set_markets,
@@ -212,7 +212,10 @@ impl HoopsRouterTrait for HoopsRouter {
     }
 
     fn swap(e: Env, amount: i128, token_in: Address, token_out: Address, best_hop: Address, sender: Address, deadline: u64) {
-        // Find the adapter for the best_hop (pool address)
+        // Tokens are already in the Router (transferred by the Account contract).
+        // DeFindex pattern: each contract operates in its own auth context,
+        // keeping authorization chains shallow.
+
         let markets = get_markets(&e);
         let adapters = get_adapters(&e);
 
@@ -233,36 +236,83 @@ impl HoopsRouterTrait for HoopsRouter {
             panic_with_error!(&e, RouterError::InvalidID);
         };
 
-        // Call adapter swap
-        let adapter = AdapterClient::new(&e, &adapter_address);
-        let path = Vec::from_array(&e, [token_in, token_out]);
+        // Transfer tokens from Router to the Adapter.
+        // Router is the direct caller of token → auth succeeds.
+        token::Client::new(&e, &token_in)
+            .transfer(&e.current_contract_address(), &adapter_address, &amount);
 
-        // AdapterClient auto-unwraps the result, so this returns i128 directly or panics
-        adapter.swap_exact_in(&amount, &0i128, &path, &sender, &deadline);
+        // Delegate to the adapter's swap_in_pool function.
+        // The adapter handles protocol-specific logic: transfers to pool,
+        // calculates output, calls pair.swap(), sends output to sender.
+        let mut args: Vec<Val> = Vec::new(&e);
+        args.push_back(amount.into_val(&e));
+        args.push_back(0i128.into_val(&e));
+        args.push_back(token_in.into_val(&e));
+        args.push_back(token_out.into_val(&e));
+        args.push_back(best_hop.into_val(&e));
+        args.push_back(sender.into_val(&e));
+
+        let _: i128 = e.invoke_contract(
+            &adapter_address,
+            &Symbol::new(&e, "swap_in_pool"),
+            args,
+        );
     }
 
     fn provide_liquidity(
         e: Env,
-        amount: i128,
+        _amount: i128,
         lp_plans: Vec<LpPlan>,
         sender: Address,
         deadline: u64,
     ) {
-        // For each plan, call the appropriate adapter's add_liquidity
+        // Tokens are already in the Router (transferred by the Account contract).
+        // Same DeFindex pattern as swap: forward tokens to adapter, delegate.
         let adapters = get_adapters(&e);
+        let markets = get_markets(&e);
+
         for plan in lp_plans.iter() {
             let Some(adapter_address) = adapters.get(plan.adapter_id) else { continue; };
-            let adapter = AdapterClient::new(&e, &adapter_address);
-            // This assumes AdapterClient has add_liquidity implemented
-            adapter.add_liquidity(
-                &plan.token_a,
-                &plan.token_b,
-                &plan.amount_a,
-                &plan.amount_b,
-                &0i128,
-                &0i128,
-                &sender,
-                &deadline,
+
+            // Find the pool address for this adapter + token pair
+            let mut pool_address: Option<Address> = None;
+            let (ta, tb) = if plan.token_a < plan.token_b {
+                (plan.token_a.clone(), plan.token_b.clone())
+            } else {
+                (plan.token_b.clone(), plan.token_a.clone())
+            };
+            for market in markets.iter() {
+                if market.adapter_id == plan.adapter_id
+                    && market.token_a == ta
+                    && market.token_b == tb
+                {
+                    pool_address = Some(market.pool_address.clone());
+                    break;
+                }
+            }
+            let Some(pool) = pool_address else {
+                panic_with_error!(&e, RouterError::PoolNotFound);
+            };
+
+            // Transfer both tokens from Router to Adapter
+            token::Client::new(&e, &plan.token_a)
+                .transfer(&e.current_contract_address(), &adapter_address, &plan.amount_a);
+            token::Client::new(&e, &plan.token_b)
+                .transfer(&e.current_contract_address(), &adapter_address, &plan.amount_b);
+
+            // Delegate to adapter's add_liquidity_in_pool
+            let mut args: Vec<Val> = Vec::new(&e);
+            args.push_back(plan.token_a.into_val(&e));
+            args.push_back(plan.token_b.into_val(&e));
+            args.push_back(plan.amount_a.into_val(&e));
+            args.push_back(plan.amount_b.into_val(&e));
+            args.push_back(pool.into_val(&e));
+            args.push_back(sender.into_val(&e));
+
+            let _: i128 = e.invoke_contract(
+                &adapter_address,
+                &Symbol::new(&e, "add_liq_in_pool"),
+                args,
             );
         }
     }

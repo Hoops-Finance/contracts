@@ -9,7 +9,7 @@ use event::*;
 use hoops_adapter_interface::{AdapterError, AdapterTrait};
 use protocol::soroswap_pair::SoroswapPairClient;
 use protocol::soroswap_router::SoroswapRouterClient;
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Vec};
+use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 use storage::*;
 
 const PROTOCOL_ID: i128 = 3;
@@ -231,5 +231,95 @@ impl AdapterTrait for SoroswapAdapter {
         let denominator = (reserve_out - amount_out_u128) * 997;
         let amount_in = numerator / denominator + 1;
         Ok(amount_in as i128)
+    }
+}
+
+/// Direct pair swap - called by the Router when tokens are pre-transferred.
+/// Keeps auth chains shallow (DeFindex pattern): each contract operates
+/// within its own authorization context.
+#[contractimpl]
+impl SoroswapAdapter {
+    pub fn swap_in_pool(
+        e: Env,
+        amt_in: i128,
+        min_out: i128,
+        token_in: Address,
+        token_out: Address,
+        pool: Address,
+        to: Address,
+    ) -> i128 {
+        // Tokens are already in this adapter (transferred by Router).
+        // Transfer from adapter to the pair - adapter is direct caller → auth works.
+        token::Client::new(&e, &token_in)
+            .transfer(&e.current_contract_address(), &pool, &amt_in);
+
+        // Query pair reserves and determine token ordering
+        let pair = SoroswapPairClient::new(&e, &pool);
+        let (reserve_0, reserve_1) = pair.get_reserves();
+        let token_0 = pair.token_0();
+
+        let (reserve_in, reserve_out) = if token_in == token_0 {
+            (reserve_0, reserve_1)
+        } else {
+            (reserve_1, reserve_0)
+        };
+
+        // Calculate output with 0.3% fee (constant product x*y=k)
+        let amt_u = amt_in as u128;
+        let fee_adj = amt_u * 997;
+        let amount_out = (fee_adj * reserve_out as u128
+            / (reserve_in as u128 * 1000 + fee_adj)) as i128;
+
+        assert!(amount_out >= min_out, "slippage");
+
+        // Call pair.swap() - pair requires NO auth from `to`,
+        // it just validates the K invariant and sends output tokens.
+        let (a0, a1) = if token_in == token_0 {
+            (0i128, amount_out)
+        } else {
+            (amount_out, 0i128)
+        };
+        pair.swap(&a0, &a1, &to);
+
+        // Emit swap event
+        swap(
+            &e,
+            SwapEvent {
+                amt_in,
+                amt_out: amount_out,
+                path: Vec::from_array(&e, [token_in, token_out]),
+                to,
+            },
+        );
+        bump(&e);
+
+        amount_out
+    }
+
+    /// Direct pair liquidity deposit - called by the Router when tokens are pre-transferred.
+    /// Same shallow-auth pattern as swap_in_pool.
+    pub fn add_liq_in_pool(
+        e: Env,
+        token_a: Address,
+        token_b: Address,
+        amount_a: i128,
+        amount_b: i128,
+        pool: Address,
+        to: Address,
+    ) -> i128 {
+        // Tokens are already in this adapter (transferred by Router).
+        // Transfer both tokens from adapter to the pair.
+        token::Client::new(&e, &token_a)
+            .transfer(&e.current_contract_address(), &pool, &amount_a);
+        token::Client::new(&e, &token_b)
+            .transfer(&e.current_contract_address(), &pool, &amount_b);
+
+        // Call pair.deposit(to) - mints LP tokens based on balance delta.
+        // pair.deposit() does NOT require auth from `to`.
+        let pair = SoroswapPairClient::new(&e, &pool);
+        let lp_minted = pair.deposit(&to);
+
+        bump(&e);
+        lp_minted
     }
 }
