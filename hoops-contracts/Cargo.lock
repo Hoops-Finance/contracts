@@ -1734,11 +1734,11 @@ dependencies = [
 
 [[package]]
 name = "soroban-fixed-point-math"
-version = "1.3.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96667fe060746279499e44bd9636e195191894324124f1368e0ab115a143cf62"
+checksum = "671e84e393a03992963c8763f8f5d8998c99e5079e03a56ab23e5dd9f7d99db5"
 dependencies = [
- "soroban-sdk 22.0.8",
+ "soroban-sdk 25.1.0",
 ]
 
 [[package]]

@@ -284,3 +284,96 @@ pub struct Record {
     pub scalar: i128,
     pub index: u32,
 }
+
+/// Direct pool operations called by the Router when tokens are pre-transferred.
+/// Shallow-auth pattern: adapter is the direct caller, no require_auth on `to`.
+#[contractimpl]
+impl CometAdapter {
+    pub fn swap_in_pool(
+        e: Env,
+        amt_in: i128,
+        min_out: i128,
+        token_in: Address,
+        token_out: Address,
+        pool: Address,
+        to: Address,
+    ) -> i128 {
+        // Tokens are already in this adapter (transferred by Router).
+        // Transfer from adapter to the pool - adapter is direct caller -> auth works.
+        token::Client::new(&e, &token_in)
+            .transfer(&e.current_contract_address(), &pool, &amt_in);
+
+        // Execute swap via Comet pool
+        let pool_client = CometPoolClient::new(&e, &pool);
+        let (amt_out, _) = pool_client.swap_exact_amount_in(
+            &token_in,
+            &amt_in,
+            &token_out,
+            &min_out,
+            &i128::MAX, // max_price
+            &to,
+        );
+
+        event::swap(
+            &e,
+            event::SwapEvent {
+                amt_in,
+                amt_out,
+                path: Vec::from_array(&e, [token_in, token_out]),
+                to,
+            },
+        );
+        bump(&e);
+
+        amt_out
+    }
+
+    pub fn add_liq_in_pool(
+        e: Env,
+        token_a: Address,
+        token_b: Address,
+        amount_a: i128,
+        amount_b: i128,
+        pool: Address,
+        to: Address,
+    ) -> i128 {
+        // Tokens are already in this adapter (transferred by Router).
+        // Transfer both tokens from adapter to the pool.
+        token::Client::new(&e, &token_a)
+            .transfer(&e.current_contract_address(), &pool, &amount_a);
+        token::Client::new(&e, &token_b)
+            .transfer(&e.current_contract_address(), &pool, &amount_b);
+
+        // Compute join amount: pool_amount_out = pool_total * min(amount_a/bal_a, amount_b/bal_b)
+        // Using i128 with multiply-before-divide for precision.
+        let pool_client = CometPoolClient::new(&e, &pool);
+        let pool_total = pool_client.get_total_supply();
+        let bal_a = pool_client.get_balance(&token_a);
+        let bal_b = pool_client.get_balance(&token_b);
+
+        // pool_out_a = pool_total * amount_a / bal_a (and same for b)
+        let pool_out_a = if bal_a > 0 { pool_total * amount_a / bal_a } else { 0 };
+        let pool_out_b = if bal_b > 0 { pool_total * amount_b / bal_b } else { 0 };
+        let pool_amount_out = pool_out_a.min(pool_out_b);
+
+        let max_amounts = Vec::from_array(&e, [amount_a, amount_b]);
+
+        let before_lp = pool_client.balance(&to);
+        pool_client.join_pool(&pool_amount_out, &max_amounts, &to);
+        let after_lp = pool_client.balance(&to);
+        let lp_minted = after_lp - before_lp;
+
+        event::add_lp(
+            &e,
+            event::AddLpEvent {
+                token_a,
+                token_b,
+                lp: pool,
+                to,
+            },
+        );
+        bump(&e);
+
+        lp_minted
+    }
+}

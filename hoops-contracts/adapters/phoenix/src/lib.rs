@@ -8,7 +8,7 @@ use storage::*;
 #[allow(unused_imports)]
 use event::*;
 use hoops_adapter_interface::{AdapterTrait, AdapterError};
-use soroban_sdk::{contract, contractimpl, Address, BytesN, Env, Vec};
+use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 use protocol::phoenix_pair::PhoenixPoolClient;
 
 const PROTOCOL_ID: i128 = 2;
@@ -194,5 +194,102 @@ impl AdapterTrait for PhoenixAdapter {
         let ask_asset = token_out.clone();
         let resp = pool.simulate_reverse_swap(&ask_asset, &amount_out);
         Ok(resp.offer_amount)
+    }
+}
+
+/// Direct pool operations called by the Router when tokens are pre-transferred.
+/// Shallow-auth pattern: adapter is the direct caller, no require_auth on `to`.
+#[contractimpl]
+impl PhoenixAdapter {
+    pub fn swap_in_pool(
+        e: Env,
+        amt_in: i128,
+        min_out: i128,
+        token_in: Address,
+        token_out: Address,
+        pool: Address,
+        to: Address,
+    ) -> i128 {
+        // Tokens are already in this adapter (transferred by Router).
+        // Transfer from adapter to the pool - adapter is direct caller -> auth works.
+        token::Client::new(&e, &token_in)
+            .transfer(&e.current_contract_address(), &pool, &amt_in);
+
+        // Execute swap via Phoenix pool
+        let pool_client = PhoenixPoolClient::new(&e, &pool);
+        let amt_out = pool_client.swap(
+            &to,
+            &token_in,
+            &amt_in,
+            &Some(min_out),
+            &None::<i64>,    // max_spread_bps
+            &None::<u64>,    // deadline
+            &None::<i64>,    // max_allowed_fee_bps
+        );
+
+        event::swap(
+            &e,
+            event::SwapEvent {
+                amt_in,
+                amt_out,
+                path: Vec::from_array(&e, [token_in, token_out]),
+                to,
+            },
+        );
+        bump(&e);
+
+        amt_out
+    }
+
+    pub fn add_liq_in_pool(
+        e: Env,
+        token_a: Address,
+        token_b: Address,
+        amount_a: i128,
+        amount_b: i128,
+        pool: Address,
+        to: Address,
+    ) -> i128 {
+        // Tokens are already in this adapter (transferred by Router).
+        // Transfer both tokens from adapter to the pool.
+        token::Client::new(&e, &token_a)
+            .transfer(&e.current_contract_address(), &pool, &amount_a);
+        token::Client::new(&e, &token_b)
+            .transfer(&e.current_contract_address(), &pool, &amount_b);
+
+        // Query share token to measure LP minted
+        let pool_client = PhoenixPoolClient::new(&e, &pool);
+        let pool_info = pool_client.query_pool_info();
+        let share_token_addr = pool_info.asset_lp_share.address;
+        let share_token_client = token::Client::new(&e, &share_token_addr);
+        let before_lp = share_token_client.balance(&to);
+
+        // Provide liquidity via Phoenix pool
+        pool_client.provide_liquidity(
+            &to,
+            &Some(amount_a),
+            &Some(0i128),    // min_a
+            &Some(amount_b),
+            &Some(0i128),    // min_b
+            &None::<i64>,    // custom_slippage_bps
+            &None::<u64>,    // deadline
+            &false,          // auto_stake
+        );
+
+        let after_lp = share_token_client.balance(&to);
+        let lp_minted = after_lp - before_lp;
+
+        event::add_lp(
+            &e,
+            event::AddLpEvent {
+                token_a,
+                token_b,
+                lp: pool,
+                to,
+            },
+        );
+        bump(&e);
+
+        lp_minted
     }
 }

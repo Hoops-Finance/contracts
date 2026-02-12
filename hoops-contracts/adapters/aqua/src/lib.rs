@@ -7,7 +7,7 @@ mod storage;
 use event::*;
 use hoops_adapter_interface::{AdapterError, AdapterTrait};
 use soroban_fixed_point_math::SorobanFixedPoint;
-use soroban_sdk::{contract, contractimpl, log, panic_with_error, token::Client as TokenClient, Address, BytesN, Env, Vec};
+use soroban_sdk::{contract, contractimpl, log, panic_with_error, token, token::Client as TokenClient, Address, BytesN, Env, Vec};
 use storage::{
     bump, get_amm, get_pool_for_tokens, is_init, mark_init, set_amm, set_pool_for_tokens,
     AquaPoolInfo,
@@ -384,5 +384,108 @@ impl AdapterTrait for AquaAdapter {
         let amount_in = (reserve_in * amount_out as u128) / (reserve_out - amount_out as u128) + 1;
 
         Ok(amount_in as i128)
+    }
+}
+
+/// Direct pool operations called by the Router when tokens are pre-transferred.
+/// Shallow-auth pattern: adapter is the direct caller, no require_auth on `to`.
+#[contractimpl]
+impl AquaAdapter {
+    pub fn swap_in_pool(
+        e: Env,
+        amt_in: i128,
+        min_out: i128,
+        token_in: Address,
+        token_out: Address,
+        pool: Address,
+        to: Address,
+    ) -> i128 {
+        // Tokens are already in this adapter (transferred by Router).
+        // Transfer from adapter to the pool - adapter is direct caller -> auth works.
+        token::Client::new(&e, &token_in)
+            .transfer(&e.current_contract_address(), &pool, &amt_in);
+
+        // Determine token indices within the pool
+        let pool_client = protocol::AquaPoolClient::new(&e, &pool);
+        let tokens = pool_client.get_tokens();
+        let in_idx: u32 = if tokens.get(0).unwrap() == token_in { 0 } else { 1 };
+        let out_idx: u32 = if in_idx == 0 { 1 } else { 0 };
+
+        // Execute swap via Aqua pool - sends output tokens directly to `to`
+        let amt_out = pool_client.swap(
+            &to,
+            &in_idx,
+            &out_idx,
+            &(amt_in as u128),
+            &(min_out as u128),
+        );
+
+        let amt_out_i128 = amt_out as i128;
+
+        event::swap(
+            &e,
+            event::SwapEvent {
+                amt_in,
+                amt_out: amt_out_i128,
+                path: Vec::from_array(&e, [token_in, token_out]),
+                to,
+            },
+        );
+        bump(&e);
+
+        amt_out_i128
+    }
+
+    pub fn add_liq_in_pool(
+        e: Env,
+        token_a: Address,
+        token_b: Address,
+        amount_a: i128,
+        amount_b: i128,
+        pool: Address,
+        to: Address,
+    ) -> i128 {
+        // Tokens are already in this adapter (transferred by Router).
+        // Transfer both tokens from adapter to the pool.
+        token::Client::new(&e, &token_a)
+            .transfer(&e.current_contract_address(), &pool, &amount_a);
+        token::Client::new(&e, &token_b)
+            .transfer(&e.current_contract_address(), &pool, &amount_b);
+
+        // Look up pool reserves and compute deposit amounts / min shares
+        let pool_client = protocol::AquaPoolClient::new(&e, &pool);
+        let reserves = pool_client.get_reserves();
+        let reserve_a = reserves.get(0).unwrap();
+        let reserve_b = reserves.get(1).unwrap();
+        let total_shares = pool_client.get_total_shares();
+
+        let (dep_a, dep_b) = get_deposit_amounts(
+            &e,
+            amount_a as u128,
+            0u128,
+            amount_b as u128,
+            0u128,
+            reserve_a,
+            reserve_b,
+        );
+
+        let min_shares = get_shares(&e, dep_a, dep_b, reserve_a, reserve_b, total_shares);
+        let desired_amounts = Vec::from_array(&e, [dep_a, dep_b]);
+
+        // Deposit into the Aqua pool - pool mints LP tokens to `to`
+        let (_amounts, shares_minted) = pool_client.deposit(&to, &desired_amounts, &min_shares);
+
+        event::add_lp(
+            &e,
+            event::AddLpEvent {
+                token_a,
+                token_b,
+                lp: pool,
+                to,
+            },
+        );
+        bump(&e);
+
+        shares_minted as i128
     }
 }
