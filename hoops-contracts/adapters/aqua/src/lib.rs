@@ -7,7 +7,11 @@ mod storage;
 use event::*;
 use hoops_adapter_interface::{AdapterError, AdapterTrait};
 use soroban_fixed_point_math::SorobanFixedPoint;
-use soroban_sdk::{contract, contractimpl, log, panic_with_error, token, token::Client as TokenClient, Address, BytesN, Env, Vec};
+use soroban_sdk::{
+    auth::{ContractContext, InvokerContractAuthEntry, SubContractInvocation},
+    contract, contractimpl, log, panic_with_error, token, token::Client as TokenClient,
+    Address, BytesN, Env, IntoVal, Symbol, Vec,
+};
 use storage::{
     bump, get_amm, get_pool_for_tokens, is_init, mark_init, set_amm, set_pool_for_tokens,
     AquaPoolInfo,
@@ -445,14 +449,10 @@ impl AquaAdapter {
         pool: Address,
         to: Address,
     ) -> i128 {
-        // Tokens are already in this adapter (transferred by Router).
-        // Transfer both tokens from adapter to the pool.
-        token::Client::new(&e, &token_a)
-            .transfer(&e.current_contract_address(), &pool, &amount_a);
-        token::Client::new(&e, &token_b)
-            .transfer(&e.current_contract_address(), &pool, &amount_b);
+        // Tokens are in this adapter (pre-transferred by Router).
+        // Aqua pool.deposit() calls require_auth(user) and pulls tokens from user,
+        // so we deposit as the ADAPTER and forward LP tokens to the recipient.
 
-        // Look up pool reserves and compute deposit amounts / min shares
         let pool_client = protocol::AquaPoolClient::new(&e, &pool);
         let reserves = pool_client.get_reserves();
         let reserve_a = reserves.get(0).unwrap();
@@ -472,8 +472,45 @@ impl AquaAdapter {
         let min_shares = get_shares(&e, dep_a, dep_b, reserve_a, reserve_b, total_shares);
         let desired_amounts = Vec::from_array(&e, [dep_a, dep_b]);
 
-        // Deposit into the Aqua pool - pool mints LP tokens to `to`
-        let (_amounts, shares_minted) = pool_client.deposit(&to, &desired_amounts, &min_shares);
+        // The adapter is the direct invoker of pool.deposit, so the pool's
+        // user.require_auth() is auto-satisfied. We only need to authorize
+        // the token transfers that the pool makes on our behalf (indirect calls).
+        e.authorize_as_current_contract(soroban_sdk::vec![
+            &e,
+            InvokerContractAuthEntry::Contract(SubContractInvocation {
+                context: ContractContext {
+                    contract: token_a.clone(),
+                    fn_name: Symbol::new(&e, "transfer"),
+                    args: (
+                        e.current_contract_address(),
+                        pool.clone(),
+                        dep_a as i128,
+                    )
+                        .into_val(&e),
+                },
+                sub_invocations: soroban_sdk::vec![&e],
+            }),
+            InvokerContractAuthEntry::Contract(SubContractInvocation {
+                context: ContractContext {
+                    contract: token_b.clone(),
+                    fn_name: Symbol::new(&e, "transfer"),
+                    args: (
+                        e.current_contract_address(),
+                        pool.clone(),
+                        dep_b as i128,
+                    )
+                        .into_val(&e),
+                },
+                sub_invocations: soroban_sdk::vec![&e],
+            }),
+        ]);
+
+        // Deposit as the adapter — pool pulls tokens and mints shares to adapter.
+        // LP shares intentionally stay in the adapter: transferring reward-bearing
+        // Aqua LP tokens triggers 4 checkpoint rounds (checkpoint_reward ×2 +
+        // checkpoint_working_balance ×2) that exceed Soroban's per-tx memory budget.
+        let (_amounts, shares_minted) =
+            pool_client.deposit(&e.current_contract_address(), &desired_amounts, &min_shares);
 
         event::add_lp(
             &e,
