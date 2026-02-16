@@ -1,9 +1,15 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, contracterror,
-    token::Client as TokenClient, Address, BytesN, Env, IntoVal, Symbol, Val, Vec,
+    auth::{Context, CustomAccountInterface},
+    contract, contractimpl, contracttype, contracterror, crypto::Hash, symbol_short,
+    token::Client as TokenClient, Address, Bytes, BytesN, Env, IntoVal, Symbol, Val, Vec,
 };
+
+mod base64_url;
+mod verify;
+#[cfg(test)]
+mod test;
 
 pub mod hoops_router {
     soroban_sdk::contractimport!(
@@ -27,17 +33,28 @@ pub struct LpPlan {
 }
 
 
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct Secp256r1Signature {
+    pub authenticator_data: Bytes,
+    pub client_data_json: Bytes,
+    pub signature: BytesN<64>,
+}
+
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum AccountError {
     AlreadyInitialized = 1,
     NotAuthorized = 2,
+    PasskeyNotSet = 3,
+    ClientDataJsonChallengeIncorrect = 4,
+    JsonParseError = 5,
 }
 
 #[contracttype]
 #[derive(Clone)]
-enum Key { Owner, Router }
+enum Key { Owner, Router, PasskeyPubkey }
 
 #[contracttype]
 #[derive(Clone)]
@@ -167,7 +184,70 @@ impl Account {
         Ok(())
     }
 
+    /* ---- passkey lifecycle ---- */
+
+    /// Initialize a smart account with a passkey as primary signer.
+    /// For passkey accounts, the `owner` field is set but all auth routes through
+    /// `__check_auth` (secp256r1 verification) once `PasskeyPubkey` is stored.
+    pub fn initialize_with_passkey(
+        e: Env,
+        owner: Address,
+        router: Address,
+        passkey_pubkey: BytesN<65>,
+    ) -> Result<(), AccountError> {
+        if e.storage().instance().has(&Key::Owner) {
+            return Err(AccountError::AlreadyInitialized);
+        }
+        e.storage().instance().set(&Key::Owner, &owner);
+        e.storage().instance().set(&Key::Router, &router);
+        e.storage().instance().set(&Key::PasskeyPubkey, &passkey_pubkey);
+        Ok(())
+    }
+
+    /// Store or replace the passkey public key (65-byte uncompressed secp256r1).
+    /// If a passkey is already set, the caller must authenticate via the existing
+    /// passkey (routed through `__check_auth`).
+    pub fn set_passkey_pubkey(e: Env, pubkey: BytesN<65>) {
+        if e.storage().instance().has(&Key::PasskeyPubkey) {
+            e.current_contract_address().require_auth();
+        }
+        e.storage().instance().set(&Key::PasskeyPubkey, &pubkey);
+    }
+
+    /// Returns the stored passkey public key, or None if not set.
+    pub fn get_passkey_pubkey(e: Env) -> Option<BytesN<65>> {
+        e.storage().instance().get(&Key::PasskeyPubkey)
+    }
+
     /* ---- views ---- */
     pub fn owner(e: &Env)  -> Address { e.storage().instance().get(&Key::Owner).unwrap() }
     pub fn router(e: &Env) -> Address { e.storage().instance().get(&Key::Router).unwrap() }
+}
+
+/// WebAuthn passkey authentication via secp256r1.
+/// Once `CustomAccountInterface` is implemented, ALL `require_auth()` calls on
+/// this contract route through `__check_auth`. This means passkey accounts verify
+/// signatures on-chain using the stored secp256r1 public key.
+#[contractimpl]
+impl CustomAccountInterface for Account {
+    type Error = AccountError;
+    type Signature = Secp256r1Signature;
+
+    #[allow(non_snake_case)]
+    fn __check_auth(
+        env: Env,
+        signature_payload: Hash<32>,
+        signature: Secp256r1Signature,
+        _auth_contexts: Vec<Context>,
+    ) -> Result<(), AccountError> {
+        let pk: BytesN<65> = env
+            .storage()
+            .instance()
+            .get(&Key::PasskeyPubkey)
+            .ok_or(AccountError::PasskeyNotSet)?;
+
+        verify::verify_secp256r1_signature(&env, &signature_payload, &pk, signature);
+
+        Ok(())
+    }
 }

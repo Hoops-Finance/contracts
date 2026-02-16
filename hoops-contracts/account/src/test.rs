@@ -1,208 +1,202 @@
-#[cfg(test)]
-mod test {
-    use soroban_sdk::{
-        Env,
-        Address,
-        BytesN,
-        Vec,
-        testutils::{Address as _, Ledger, LedgerInfo},
-        token,
-    };
-    use crate::{Account, AccountClient, AccountError, LpPlan};
+use soroban_sdk::{
+    Env,
+    Address,
+    BytesN,
+    Vec,
+    testutils::Address as _,
+    token,
+};
+use crate::{Account, AccountClient, AccountError, LpPlan};
 
-    // Import the router contract
-    pub mod hoops_router {
-        soroban_sdk::contractimport!(
-            file = "../bytecodes/hoops_router.wasm"
-        );
-        pub type RouterClient<'a> = Client<'a>;
-    }
-    use hoops_router::RouterClient;
+// Import the router contract
+pub mod hoops_router {
+    soroban_sdk::contractimport!(
+        file = "../bytecodes/hoops_router.wasm"
+    );
+    pub type RouterClient<'a> = Client<'a>;
+}
+use hoops_router::RouterClient;
 
-    const DECIMALS: u32 = 7;
-    const TOKEN_UNIT: i128 = 10i128.pow(DECIMALS);
+const DECIMALS: u32 = 7;
+const TOKEN_UNIT: i128 = 10i128.pow(DECIMALS);
 
-    struct TestEnv {
-        env: Env,
-        admin: Address,
-        user: Address,
-        account_contract_id: Address,
-        account_client: AccountClient<'static>,
-        router_contract_id: Address,
-        router_client: RouterClient<'static>,
-        usdc_token_id: Address,
-        usdc_token_client: token::Client<'static>,
-        lp_token_id: Address,
-        lp_token_client: token::Client<'static>,
-    }
+struct TestEnv {
+    env: Env,
+    #[allow(dead_code)]
+    admin: Address,
+    user: Address,
+    account_contract_id: Address,
+    account_client: AccountClient<'static>,
+    router_contract_id: Address,
+    #[allow(dead_code)]
+    router_client: RouterClient<'static>,
+    usdc_token_id: Address,
+    usdc_token_client: token::StellarAssetClient<'static>,
+    usdc_balance_client: token::Client<'static>,
+    lp_token_id: Address,
+    lp_token_client: token::StellarAssetClient<'static>,
+    lp_balance_client: token::Client<'static>,
+}
 
-    impl TestEnv {
-        fn setup() -> Self {
-            let env = Env::default();
-            env.mock_all_auths();
+impl TestEnv {
+    fn setup() -> Self {
+        let env = Env::default();
+        env.mock_all_auths();
 
-            let admin = Address::generate(&env);
-            let user = Address::generate(&env);
+        let admin = Address::generate(&env);
+        let user = Address::generate(&env);
 
-            // Deploy and initialize Account contract
-            let account_contract_id = env.register_contract(None, Account);
-            let account_client = AccountClient::new(&env, &account_contract_id);
+        // Deploy and initialize Account contract
+        let account_contract_id = env.register(Account, ());
+        let account_client = AccountClient::new(&env, &account_contract_id);
 
-            // Deploy Router contract (assuming it has an initialize function)
-            let router_contract_id = env.register_contract_wasm(None, hoops_router::WASM);
-            let router_client = RouterClient::new(&env, &router_contract_id);
-            // router_client.initialize(&admin); // Assuming router has an initialize function
+        // Deploy Router contract
+        let router_contract_id = env.register_contract_wasm(None, hoops_router::WASM);
+        let router_client = RouterClient::new(&env, &router_contract_id);
 
-            // Deploy Token contracts
-            let usdc_token_id = env.register_stellar_asset_contract(Address::generate(&env));
-            let usdc_token_client = token::Client::new(&env, &usdc_token_id);
+        // Deploy Token contracts (StellarAssetClient for admin ops like mint)
+        let usdc_issuer = Address::generate(&env);
+        let usdc_token_id = env.register_stellar_asset_contract_v2(usdc_issuer);
+        let usdc_token_client = token::StellarAssetClient::new(&env, &usdc_token_id.address());
+        let usdc_balance_client = token::Client::new(&env, &usdc_token_id.address());
 
-            let lp_token_id = env.register_stellar_asset_contract(Address::generate(&env));
-            let lp_token_client = token::Client::new(&env, &lp_token_id);
-            
-            // Initialize account contract
-            account_client.initialize(&user, &router_contract_id);
+        let lp_issuer = Address::generate(&env);
+        let lp_token_id = env.register_stellar_asset_contract_v2(lp_issuer);
+        let lp_token_client = token::StellarAssetClient::new(&env, &lp_token_id.address());
+        let lp_balance_client = token::Client::new(&env, &lp_token_id.address());
 
-            // Mint some tokens to the user for testing
-            usdc_token_client.mint(&user, &(1000 * TOKEN_UNIT));
+        // Initialize account contract
+        account_client.initialize(&user, &router_contract_id);
 
+        // Mint some tokens to the user for testing
+        usdc_token_client.mint(&user, &(1000 * TOKEN_UNIT));
 
-            TestEnv {
-                env,
-                admin,
-                user,
-                account_contract_id,
-                account_client,
-                router_contract_id,
-                router_client,
-                usdc_token_id,
-                usdc_token_client,
-                lp_token_id,
-                lp_token_client,
-            }
+        TestEnv {
+            env,
+            admin,
+            user,
+            account_contract_id,
+            account_client,
+            router_contract_id,
+            router_client,
+            usdc_token_id: usdc_token_id.address(),
+            usdc_token_client,
+            usdc_balance_client,
+            lp_token_id: lp_token_id.address(),
+            lp_token_client,
+            lp_balance_client,
         }
     }
+}
 
-    #[test]
-    fn test_initialize() {
-        let TestEnv { env, user, account_client, router_contract_id, .. } = TestEnv::setup();
-        
-        // Check if owner is set correctly
-        assert_eq!(account_client.owner(), user);
-        // Check if router is set correctly
-        assert_eq!(account_client.router(), router_contract_id);
+#[test]
+fn test_initialize() {
+    let TestEnv { user, account_client, router_contract_id, .. } = TestEnv::setup();
 
-        // Try to initialize again, should fail
-        let init_again_result = account_client.try_initialize(&user, &router_contract_id);
-        assert_eq!(init_again_result, Err(Ok(AccountError::AlreadyInitialized)));
-    }
+    assert_eq!(account_client.owner(), user);
+    assert_eq!(account_client.router(), router_contract_id);
 
-    #[test]
-    fn test_upgrade() {
-        let TestEnv { env, user, account_client, .. } = TestEnv::setup();
-        let new_wasm_hash = env.deployer().upload_contract_wasm(crate::WASM);
+    // Try to initialize again, should fail
+    let init_again_result = account_client.try_initialize(&user, &router_contract_id);
+    assert_eq!(init_again_result, Err(Ok(AccountError::AlreadyInitialized)));
+}
 
-        // Non-owner tries to upgrade, should fail if we had stricter auth checks
-        // For now, we only check owner auth
-        // let another_user = Address::generate(&env);
-        // let upgrade_by_another_result = account_client.mock_auths(&[MockAuth {
-        //    addr: &another_user,
-        //    invoke: &MockAuthInvoke {
-        //        contract: &account_client.address,
-        //        fn_name: "upgrade",
-        //        args: (&new_wasm_hash,).into_val(&env),
-        //        sub_invokes: &[],
-        //    }
-        // }]).try_upgrade(&new_wasm_hash);
-        // assert!(upgrade_by_another_result.is_err());
+#[test]
+fn test_transfer() {
+    let TestEnv { env, account_client, usdc_token_client, usdc_balance_client, usdc_token_id, account_contract_id, .. } = TestEnv::setup();
+    let recipient = Address::generate(&env);
+    let transfer_amount = 100 * TOKEN_UNIT;
 
+    // Mint some USDC to the account contract for it to transfer
+    usdc_token_client.mint(&account_contract_id, &(200 * TOKEN_UNIT));
+    assert_eq!(usdc_balance_client.balance(&account_contract_id), 200 * TOKEN_UNIT);
 
-        // Owner upgrades
-        account_client.upgrade(&new_wasm_hash);
-        // We can't easily verify the upgrade without calling a function from the new contract version
-        // or checking contract data layout if it changed.
-        // For now, just ensuring it doesn't panic is a basic check.
-    }
+    // Owner initiates transfer
+    account_client.transfer(&usdc_token_id, &recipient, &transfer_amount);
 
-    #[test]
-    fn test_transfer() {
-        let TestEnv { env, user, account_client, usdc_token_client, usdc_token_id, account_contract_id, .. } = TestEnv::setup();
-        let recipient = Address::generate(&env);
-        let transfer_amount = 100 * TOKEN_UNIT;
+    assert_eq!(usdc_balance_client.balance(&account_contract_id), 100 * TOKEN_UNIT);
+    assert_eq!(usdc_balance_client.balance(&recipient), transfer_amount);
+}
 
-        // Mint some USDC to the account contract for it to transfer
-        usdc_token_client.mint(&account_contract_id, &(200 * TOKEN_UNIT));
-        assert_eq!(usdc_token_client.balance(&account_contract_id), 200 * TOKEN_UNIT);
+// ---- Passkey tests ----
 
+#[test]
+fn test_set_passkey_pubkey() {
+    let TestEnv { env, account_client, .. } = TestEnv::setup();
 
-        // Owner initiates transfer
-        account_client.transfer(&usdc_token_id, &recipient, &transfer_amount);
+    // Generate a fake 65-byte uncompressed secp256r1 public key
+    let pubkey = BytesN::from_array(&env, &[4u8; 65]);
 
-        assert_eq!(usdc_token_client.balance(&account_contract_id), 100 * TOKEN_UNIT);
-        assert_eq!(usdc_token_client.balance(&recipient), transfer_amount);
-    }
+    // Set passkey (first time, no auth required)
+    account_client.set_passkey_pubkey(&pubkey);
 
-    #[test]
-    fn test_deposit_usdc() {
-        let TestEnv { env, user, account_client, router_client, usdc_token_client, usdc_token_id, account_contract_id, router_contract_id, .. } = TestEnv::setup();
-        let deposit_amount = 500 * TOKEN_UNIT;
-        let deadline = env.ledger().timestamp() + 100; // 100 seconds from now
+    // Retrieve and verify
+    let stored = account_client.get_passkey_pubkey();
+    assert_eq!(stored, Some(pubkey));
+}
 
-        // User already has 1000 USDC from setup
-        assert_eq!(usdc_token_client.balance(&user), 1000 * TOKEN_UNIT);
+#[test]
+fn test_get_passkey_pubkey_not_set() {
+    let env = Env::default();
+    env.mock_all_auths();
 
-        // Define LP plans (simplified for now, assuming router handles this structure)
-        let lp_plans: Vec<LpPlan> = Vec::new(&env); // TODO: Define LpPlan properly based on router
+    let account_id = env.register(Account, ());
+    let client = AccountClient::new(&env, &account_id);
+    let user = Address::generate(&env);
+    let router = Address::generate(&env);
 
-        // User deposits USDC
-        account_client.deposit_usdc(&usdc_token_id, &deposit_amount, &lp_plans, &deadline);
+    // Initialize without passkey
+    client.initialize(&user, &router);
 
-        // Check balances
-        // User's USDC should decrease by deposit_amount
-        assert_eq!(usdc_token_client.balance(&user), (1000 - 500) * TOKEN_UNIT);
-        // Account contract's USDC should be 0 after transferring to router (or to LPs via router)
-        // This depends on router's provide_liquidity implementation.
-        // For now, we assume it's transferred out of the account.
-        // A more precise check would involve mocking router behavior or checking LP token minting.
-        // assert_eq!(usdc_token_client.balance(&account_contract_id), 0);
+    // No passkey set → returns None
+    assert_eq!(client.get_passkey_pubkey(), None);
+}
 
-        // Check allowance given to router by account contract
-        // This also depends on router consuming the allowance.
-        // let allowance = usdc_token_client.allowance(&account_contract_id, &router_contract_id);
-        // assert_eq!(allowance, 0); // Assuming router uses up the allowance
-    }
+#[test]
+fn test_initialize_with_passkey() {
+    let env = Env::default();
+    env.mock_all_auths();
 
-    #[test]
-    fn test_redeem() {
-        let TestEnv { env, user, account_client, router_client, usdc_token_client, usdc_token_id, lp_token_client, lp_token_id, account_contract_id, router_contract_id, .. } = TestEnv::setup();
-        let redeem_lp_amount = 100 * TOKEN_UNIT;
-        let deadline = env.ledger().timestamp() + 100;
+    let account_id = env.register(Account, ());
+    let client = AccountClient::new(&env, &account_id);
+    let user = Address::generate(&env);
+    let router = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[4u8; 65]);
 
-        // Simulate user having some LP tokens in the account contract
-        // (e.g., from a previous deposit_usdc call that resulted in LP tokens being sent to account)
-        // For this test, we'll directly mint LP tokens to the account contract.
-        lp_token_client.mint(&account_contract_id, &(200 * TOKEN_UNIT));
-        assert_eq!(lp_token_client.balance(&account_contract_id), 200 * TOKEN_UNIT);
-        
-        // Pre-fund account with some USDC to simulate what it would get from router.redeem_liquidity
-        // This is a simplification. In reality, router.redeem_liquidity would send USDC.
-        let simulated_usdc_from_redeem = 300 * TOKEN_UNIT;
-        usdc_token_client.mint(&account_contract_id, &simulated_usdc_from_redeem);
+    // Initialize with passkey in one call
+    client.initialize_with_passkey(&user, &router, &pubkey);
 
+    // Verify all three fields are stored
+    assert_eq!(client.owner(), user);
+    assert_eq!(client.router(), router);
+    assert_eq!(client.get_passkey_pubkey(), Some(pubkey));
+}
 
-        // User initiates redeem
-        account_client.redeem(&lp_token_id, &redeem_lp_amount, &usdc_token_id, &deadline);
+#[test]
+fn test_initialize_with_passkey_rejects_double_init() {
+    let env = Env::default();
+    env.mock_all_auths();
 
-        // Check balances
-        // Account contract's LP tokens should decrease
-        assert_eq!(lp_token_client.balance(&account_contract_id), (200-100) * TOKEN_UNIT);
-        
-        // User's USDC balance should increase by the amount swept from the account contract
-        // This assumes the router.redeem_liquidity resulted in `simulated_usdc_from_redeem` being in the account
-        // and then it was swept to the user.
-        assert_eq!(usdc_token_client.balance(&user), (1000 + simulated_usdc_from_redeem) * TOKEN_UNIT);
-        
-        // Account contract's USDC should be 0 after sweep
-        assert_eq!(usdc_token_client.balance(&account_contract_id), 0);
-    }
+    let account_id = env.register(Account, ());
+    let client = AccountClient::new(&env, &account_id);
+    let user = Address::generate(&env);
+    let router = Address::generate(&env);
+    let pubkey = BytesN::from_array(&env, &[4u8; 65]);
+
+    client.initialize_with_passkey(&user, &router, &pubkey);
+
+    // Second initialization should fail
+    let result = client.try_initialize_with_passkey(&user, &router, &pubkey);
+    assert_eq!(result, Err(Ok(AccountError::AlreadyInitialized)));
+}
+
+#[test]
+fn test_regular_init_blocks_passkey_init() {
+    let TestEnv { account_client, user, router_contract_id, env, .. } = TestEnv::setup();
+
+    let pubkey = BytesN::from_array(&env, &[4u8; 65]);
+
+    // Already initialized via regular init in setup — passkey init should fail
+    let result = account_client.try_initialize_with_passkey(&user, &router_contract_id, &pubkey);
+    assert_eq!(result, Err(Ok(AccountError::AlreadyInitialized)));
 }

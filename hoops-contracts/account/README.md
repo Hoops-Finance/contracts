@@ -1,60 +1,121 @@
 # Hoops Account Contract
 
-The `hoops-account` contract acts as a user-specific smart account designed to streamline interactions with the Hoops Finance `Router`. It enables users to manage their liquidity provision and redemption activities within the Hoops ecosystem.
+The `hoops-account` contract acts as a user-specific smart account designed to streamline interactions with the Hoops Finance `Router`. It enables users to manage their liquidity provision, redemption, and swap activities within the Hoops ecosystem.
+
+The contract supports two authentication modes:
+- **External wallet (Ed25519)**: Traditional Stellar wallets (e.g., Freighter) using `require_auth()` on the owner address.
+- **Passkey (secp256r1)**: Non-custodial biometric authentication via WebAuthn. Once a passkey public key is set, all `require_auth()` calls route through `__check_auth()` for on-chain P-256 signature verification.
 
 ## Core Functionality
 
-The contract provides the following key features:
+### Lifecycle Management
 
-1.  **Lifecycle Management**:
-    *   `initialize(owner: Address, router: Address)`: Sets the owner of the account and the address of the Hoops `Router` contract. This can only be called once.
-    *   `upgrade(wasm: BytesN<32>)`: Allows the owner to upgrade the contract's WASM code.
+- `initialize(owner, router)` — Sets the owner and router addresses. Can only be called once.
+- `initialize_with_passkey(owner, router, passkey_pubkey)` — Initializes the account with a passkey as primary signer. Stores the 65-byte uncompressed secp256r1 public key alongside owner and router.
+- `upgrade(wasm)` — Allows the owner to upgrade the contract's WASM code.
 
-2.  **Token Passthrough**:
-    *   `transfer(token: Address, to: Address, amount: i128)`: A generic function allowing the owner to transfer any token held by this account to a specified address.
+### Passkey Authentication
 
-3.  **Liquidity Operations**:
-    *   `deposit_usdc(usdc: Address, amount: i128, lp_plans: Vec<LpPlan>, deadline: u32)`:
-        *   The owner first transfers USDC to this `Account` contract.
-        *   This function then authorizes the `Account` contract to spend the owner's USDC.
-        *   It approves the Hoops `Router` to pull the USDC from this `Account`.
-        *   Finally, it calls `provide_liquidity` on the `Router` with the specified `amount` and `lp_plans` (detailing how the USDC should be allocated across different liquidity pools).
-    *   `redeem(lp_token: Address, lp_amount: i128, usdc: Address, deadline: u32)`:
-        *   The owner first approves this `Account` contract to spend their LP tokens.
-        *   This function then approves the Hoops `Router` to pull the LP tokens from this `Account`.
-        *   It calls `redeem_liquidity` on the `Router`.
-        *   The USDC received from the `Router` is then automatically transferred (swept) to the owner's address.
+- `set_passkey_pubkey(pubkey: BytesN<65>)` — Store or replace the passkey public key. If a passkey is already set, the caller must authenticate via the existing passkey (routed through `__check_auth`).
+- `get_passkey_pubkey() -> Option<BytesN<65>>` — Returns the stored passkey public key, or None if not set.
+- `__check_auth(signature_payload, signature, auth_contexts)` — Implements `CustomAccountInterface`. Verifies secp256r1 signatures using the WebAuthn verification pipeline:
+  1. Load stored passkey public key
+  2. Concatenate `authenticator_data || SHA-256(client_data_json)`
+  3. Verify secp256r1 signature on `SHA-256(concatenated_data)`
+  4. Parse `client_data_json` to extract the `challenge` field
+  5. Verify challenge matches `base64url(signature_payload)`
 
-4.  **View Functions**:
-    *   `owner() -> Address`: Returns the address of the account owner.
-    *   `router() -> Address`: Returns the address of the Hoops `Router` contract.
+### Token Passthrough
+
+- `transfer(token, to, amount)` — Transfer any token held by this account to a specified address. Requires owner auth.
+
+### Liquidity Operations
+
+- `deposit(usdc, amount, lp_plans, deadline)` — Transfers tokens from the Account to the Router for each LP plan, then calls `provide_liquidity` on the Router. The `lp_plans` vector specifies how funds are allocated across pools.
+- `redeem(lp_token, lp_amount, usdc, deadline)` — Approves the Router to pull LP tokens, calls `redeem_liquidity`, then sweeps received USDC to the owner.
+
+### Swap
+
+- `swap(token_in, token_out, amount, best_hop, deadline)` — Transfers `token_in` to the Router and executes a swap via the best hop address.
+
+### View Functions
+
+- `owner() -> Address` — Returns the account owner.
+- `router() -> Address` — Returns the Hoops Router contract address.
+
+## Types
+
+### Secp256r1Signature
+
+```rust
+pub struct Secp256r1Signature {
+    pub authenticator_data: Bytes,
+    pub client_data_json: Bytes,
+    pub signature: BytesN<64>,
+}
+```
+
+WebAuthn signature payload for passkey authentication. Produced by the browser's WebAuthn API during biometric authentication.
+
+### LpPlan
+
+```rust
+pub struct LpPlan {
+    pub token_a: Address,
+    pub token_b: Address,
+    pub amount_a: i128,
+    pub amount_b: i128,
+    pub adapter_id: i128,
+}
+```
+
+Specifies how funds should be allocated to a specific DEX adapter.
 
 ## Error Handling
 
-The contract defines `AccountError` with the following variants:
-
-*   `AlreadyInitialized = 1`: Raised if `initialize` is called more than once.
-*   `NotAuthorized = 2`: Raised if a function requiring owner authorization is called by a different address.
+| Code | Variant | Description |
+|------|---------|-------------|
+| 1 | `AlreadyInitialized` | `initialize` or `initialize_with_passkey` called more than once |
+| 2 | `NotAuthorized` | Caller lacks authorization |
+| 3 | `PasskeyNotSet` | `__check_auth` called but no passkey public key is stored |
+| 4 | `ClientDataJsonChallengeIncorrect` | WebAuthn challenge doesn't match expected signature payload |
+| 5 | `JsonParseError` | Failed to parse `client_data_json` from the WebAuthn response |
 
 ## Events
 
 The contract emits `TokenEvent { token: Address, amount: i128 }` for:
-*   `("acct", "xfer")`: On successful `transfer`.
-*   `("acct", "dep")`: On successful `deposit_usdc`.
-*   `("acct", "wd")`: On successful `redeem` (logs the USDC amount withdrawn to the owner).
+- `("acct", "xfer")` — On successful `transfer`
+- `("acct", "dep")` — On successful `deposit`
+- `("acct", "wd")` — On successful `redeem` (logs USDC swept to owner)
+- `("acct", "swap")` — On successful `swap`
+
+## Storage Keys
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `Owner` | `Address` | Account owner (EOA or deployer) |
+| `Router` | `Address` | Hoops Router contract address |
+| `PasskeyPubkey` | `BytesN<65>` | Uncompressed secp256r1 public key (0x04 prefix + x + y) |
 
 ## Dependencies
 
-*   `soroban-sdk`
-*   `hoops-common`: For common types or utilities (though not explicitly used in the provided `lib.rs` for specific types beyond what `soroban-sdk` offers for this contract's logic).
-*   `hoops-router`: For the `RouterClient` and `LpPlan` type, enabling interaction with the router contract. The router's WASM is imported directly via `contractimport!`.
+- `soroban-sdk` — Soroban smart contract SDK
+- `hoops-common` — Shared types
+- `hoops-router` — Router client (WASM imported via `contractimport!`)
+- `serde` — Serialization for JSON parsing
+- `serde-json-core` — No-std JSON parser for `client_data_json`
 
-## TODOs & Potential Enhancements
+## Testing
 
-*   **Enhanced Authorization**: Explore more granular control over function calls, potentially differentiating permissions for various operations.
-*   **Multi-Signer Support**: Investigate mechanisms to allow different types of signers (e.g., for automated strategies) or multi-signature control over the account.
-*   **Event Granularity**: Consider adding more specific events for different stages within the `deposit_usdc` and `redeem` functions to provide better off-chain tracking.
-*   **Expanded Error Handling**: Add more specific error variants to `AccountError` to cover potential issues during interactions with the `Router` (e.g., `Router.provide_liquidity` failing) or token contracts (e.g., insufficient balance/allowance before calling router).
-*   **Gas Optimization**: Review token approval and transfer patterns for potential gas savings. For instance, `deposit_usdc` involves the owner transferring to the account, then the account approving the router.
-*   **Direct Swap Functionality**: Consider adding a convenience function to perform direct token swaps via the `Router`, abstracting the underlying router calls for the user.
-*   **Router Interface Robustness**: Ensure the imported `hoops_router.wasm` path is reliable for deployment and consider alternatives if needed.
+```bash
+# Run all account tests
+cargo test --package hoops-account -- --test-threads=1
+
+# Build WASM
+stellar contract build --out-dir bytecodes --package hoops-account
+```
+
+## Testnet Deployment
+
+- **Hoops Account WASM hash**: `adecd3f562a43a1d15860fc1c21c9c29632be9267926c2289dcdc51de482460e`
+- **Deployer**: `GDWY4J3KME3QD4FOL5SMHCUAXUM56SAKXFDPHBLUU4WYATUPUVZKDCLB`
