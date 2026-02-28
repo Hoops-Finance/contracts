@@ -1,12 +1,31 @@
-use soroban_sdk::{contracttype, Address, Env};
+use soroban_sdk::{contracttype, symbol_short, Address, Env, Symbol, unwrap::UnwrapOptimized};
 use hoops_adapter_interface::AdapterError;
 
 #[derive(Clone)]
 #[contracttype]
-enum Key { Amm, Init }
+enum Key { Amm, Init, Factory }
 
 const DAY_LEDGER: u32 = 17_280;
 const BUMP: u32 = 60 * DAY_LEDGER;
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CoreConfig {
+    pub admin: Address,
+    pub usdc: Address,
+    pub next: u32,
+    pub ttl_thresh: u32,
+    pub ttl_bump: u32,
+}
+
+pub const KEY_CORE_CONFIG: Symbol = symbol_short!("CONFIG");
+
+pub fn set_core_config(e: &Env, config: &CoreConfig) {
+    e.storage().instance().set(&KEY_CORE_CONFIG, config);
+}
+pub fn get_core_config(e: &Env) -> CoreConfig {
+    e.storage().instance().get(&KEY_CORE_CONFIG).unwrap_optimized()
+}
 
 pub fn set_amm(e:&Env, a:Address){ e.storage().instance().set(&Key::Amm,&a); }
 pub fn get_amm(e:&Env)->Result<Address,AdapterError>{
@@ -17,4 +36,11 @@ pub fn is_init(e:&Env)->bool{ e.storage().instance().has(&Key::Init) }
 
 pub fn bump(e:&Env){
     e.storage().instance().extend_ttl(BUMP-DAY_LEDGER, BUMP);
+}
+
+pub fn set_factory(e: &Env, factory: &Address) {
+    e.storage().instance().set(&Key::Factory, factory);
+}
+pub fn get_factory(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&Key::Factory)
 }

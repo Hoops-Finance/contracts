@@ -6,7 +6,7 @@ mod storage;
 
 #[allow(unused_imports)]
 use event::*;
-use hoops_adapter_interface::{AdapterError, AdapterTrait};
+use hoops_adapter_interface::{AdapterError, AdapterTrait, PoolInfo};
 use protocol::soroswap_pair::SoroswapPairClient;
 use protocol::soroswap_router::SoroswapRouterClient;
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
@@ -180,6 +180,55 @@ impl AdapterTrait for SoroswapAdapter {
         Ok((amt_a, amt_b))
     }
 
+    fn remove_liq_from_pool(
+        e: Env,
+        pool: Address,
+        lp_amount: i128,
+        to: Address,
+    ) -> (i128, i128) {
+        // LP tokens are already in this adapter (transferred by Router).
+        // Transfer LP from adapter to the pair — pair burns them on withdraw.
+        // For Soroswap, the pool address IS the LP token address.
+        token::Client::new(&e, &pool)
+            .transfer(&e.current_contract_address(), &pool, &lp_amount);
+
+        // Call pair.withdraw(to) — burns LP, sends reserve tokens to `to`.
+        let pair = SoroswapPairClient::new(&e, &pool);
+        let (amt_a, amt_b) = pair.withdraw(&to);
+
+        bump(&e);
+        (amt_a, amt_b)
+    }
+
+    /* ---------- pool validation ---------- */
+    fn validate_pool(
+        e: Env,
+        pool_address: Address,
+        token_a: Address,
+        token_b: Address,
+    ) -> Result<PoolInfo, AdapterError> {
+        let factory_addr = get_factory(&e).ok_or(AdapterError::NotInitialized)?;
+        let factory = protocol::soroswap_factory::SoroswapFactoryClient::new(&e, &factory_addr);
+        let pair_addr = factory.get_pair(&token_a, &token_b);
+        if pair_addr != pool_address {
+            return Err(AdapterError::InvalidPool);
+        }
+        // Canonicalize token order
+        let (ca, cb) = if token_a < token_b {
+            (token_a, token_b)
+        } else {
+            (token_b, token_a)
+        };
+        // For Soroswap, the LP token IS the pair address
+        Ok(PoolInfo {
+            pool_address: pool_address.clone(),
+            lp_token: pool_address,
+            token_a: ca,
+            token_b: cb,
+            pool_type: 0, // Soroswap
+        })
+    }
+
     /* ---------- quotes ---------- */
     fn quote_in(e: Env, pool_address: Address, amount_in: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
         if !is_init(&e) {
@@ -239,6 +288,14 @@ impl AdapterTrait for SoroswapAdapter {
 /// within its own authorization context.
 #[contractimpl]
 impl SoroswapAdapter {
+    /// Set the Soroswap factory address (one-shot, needed for validate_pool).
+    pub fn set_factory(e: Env, factory: Address) {
+        if storage::get_factory(&e).is_some() {
+            panic!("factory already set");
+        }
+        storage::set_factory(&e, &factory);
+    }
+
     pub fn swap_in_pool(
         e: Env,
         amt_in: i128,

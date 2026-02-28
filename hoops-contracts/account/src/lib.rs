@@ -22,16 +22,29 @@ use hoops_router::RouterClient;
 // Define LpPlan locally so the Account WASM embeds the full struct spec.
 // contractimport! generates the type but doesn't re-export field definitions,
 // which breaks CLI argument parsing. This is wire-compatible with the Router's LpPlan.
+// Fields must be in alphabetical order for Soroban contracttype serialization.
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LpPlan {
-    pub token_a: Address,
-    pub token_b: Address,
+    pub adapter_id: i128,
     pub amount_a: i128,
     pub amount_b: i128,
-    pub adapter_id: i128,
+    pub pool_address: Address,
+    pub token_a: Address,
+    pub token_b: Address,
 }
 
+// RedeemPlan: per-pool withdrawal instruction for batch_redeem.
+// No warehouse flag — Account holds all LP directly (auth tree validated).
+// Fields must be in alphabetical order for Soroban contracttype serialization.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RedeemPlan {
+    pub adapter_id: i128,
+    pub lp_amount: i128,
+    pub lp_token: Address,
+    pub pool_address: Address,
+}
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -39,6 +52,13 @@ pub struct Secp256r1Signature {
     pub authenticator_data: Bytes,
     pub client_data_json: Bytes,
     pub signature: BytesN<64>,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub enum AccountSignature {
+    Passkey(Secp256r1Signature),
+    Session(BytesN<64>),
 }
 
 #[contracterror]
@@ -50,11 +70,23 @@ pub enum AccountError {
     PasskeyNotSet = 3,
     ClientDataJsonChallengeIncorrect = 4,
     JsonParseError = 5,
+    NoActiveSession = 6,
+    SessionExpired = 7,
+    SessionScopeViolation = 8,
 }
 
 #[contracttype]
 #[derive(Clone)]
-enum Key { Owner, Router, PasskeyPubkey }
+enum Key { Owner, Router, PasskeyPubkey, SessionKey }
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SessionKey {
+    pub pubkey: BytesN<32>,
+    pub scope: Vec<Symbol>,
+    pub max_amount: i128,
+    pub expiry_ledger: u32,
+}
 
 #[contracttype]
 #[derive(Clone)]
@@ -131,27 +163,38 @@ impl Account {
         Ok(())
     }
 
-    pub fn redeem(
+    pub fn batch_redeem(
         e: Env,
-        lp_token: Address,
-        lp_amount: i128,
-        usdc: Address,
+        plans: Vec<RedeemPlan>,
         deadline: u32,
     ) -> Result<(), AccountError> {
-        Self::owner(&e).require_auth();
-        let approval_ledger = e.ledger().sequence() + 200;
-        TokenClient::new(&e,&lp_token)
-            .approve(&e.current_contract_address(), &Self::router(&e), &lp_amount, &approval_ledger);
+        let owner = Self::owner(&e);
+        owner.require_auth();
+        let router = Self::router(&e);
+        let plan_count = plans.len();
 
-        let router_client = RouterClient::new(&e, &Self::router(&e));
-        router_client.redeem_liquidity(&lp_token, &lp_amount, &e.current_contract_address(), &(deadline as u64));
+        // Transfer LP tokens from Account to Router for ALL plans.
+        // Account holds LP for all protocols (no warehouse asymmetry).
+        for plan in plans.iter() {
+            TokenClient::new(&e, &plan.lp_token)
+                .transfer(&e.current_contract_address(), &router, &plan.lp_amount);
+        }
 
-        // sweep USDC to owner
-        let bal = TokenClient::new(&e,&usdc).balance(&e.current_contract_address());
-        TokenClient::new(&e,&usdc)
-            .transfer(&e.current_contract_address(), &Self::owner(&e), &bal);
-        e.events().publish(("acct", symbol_short!("wd")),
-            TokenEvent{ token: usdc, amount: bal });
+        // Single Router call with all plans
+        let mut args: Vec<Val> = Vec::new(&e);
+        args.push_back(plans.into_val(&e));
+        args.push_back(e.current_contract_address().into_val(&e));
+        args.push_back((deadline as u64).into_val(&e));
+        let _: () = e.invoke_contract(
+            &router,
+            &Symbol::new(&e, "batch_redeem_liquidity"),
+            args,
+        );
+
+        e.events().publish(
+            (symbol_short!("acct"), symbol_short!("bred")),
+            plan_count,
+        );
         Ok(())
     }
 
@@ -219,35 +262,104 @@ impl Account {
         e.storage().instance().get(&Key::PasskeyPubkey)
     }
 
+    /* ---- session key lifecycle ---- */
+
+    /// Create a time-limited session key. Requires passkey auth (owner.require_auth()).
+    /// The session key allows signing transactions with a temporary ed25519 keypair
+    /// instead of requiring a biometric prompt for each TX.
+    pub fn create_session(e: Env, session_key: SessionKey) -> Result<(), AccountError> {
+        Self::owner(&e).require_auth();
+        let ttl = session_key.expiry_ledger.saturating_sub(e.ledger().sequence());
+        e.storage().temporary().set(&Key::SessionKey, &session_key);
+        e.storage().temporary().extend_ttl(&Key::SessionKey, ttl, ttl);
+        e.events().publish(
+            (symbol_short!("acct"), symbol_short!("sess")),
+            session_key.expiry_ledger,
+        );
+        Ok(())
+    }
+
+    /// Revoke an active session key. Requires passkey auth.
+    pub fn revoke_session(e: Env) -> Result<(), AccountError> {
+        Self::owner(&e).require_auth();
+        e.storage().temporary().remove(&Key::SessionKey);
+        Ok(())
+    }
+
+    /// Check if a session key is active.
+    pub fn has_session(e: Env) -> bool {
+        e.storage().temporary().has(&Key::SessionKey)
+    }
+
     /* ---- views ---- */
     pub fn owner(e: &Env)  -> Address { e.storage().instance().get(&Key::Owner).unwrap() }
     pub fn router(e: &Env) -> Address { e.storage().instance().get(&Key::Router).unwrap() }
 }
 
-/// WebAuthn passkey authentication via secp256r1.
+/// WebAuthn passkey authentication via secp256r1, or ed25519 session key.
 /// Once `CustomAccountInterface` is implemented, ALL `require_auth()` calls on
 /// this contract route through `__check_auth`. This means passkey accounts verify
-/// signatures on-chain using the stored secp256r1 public key.
+/// signatures on-chain using the stored secp256r1 public key, or a temporary
+/// ed25519 session key for delegated signing.
 #[contractimpl]
 impl CustomAccountInterface for Account {
     type Error = AccountError;
-    type Signature = Secp256r1Signature;
+    type Signature = AccountSignature;
 
     #[allow(non_snake_case)]
     fn __check_auth(
         env: Env,
         signature_payload: Hash<32>,
-        signature: Secp256r1Signature,
-        _auth_contexts: Vec<Context>,
+        signature: AccountSignature,
+        auth_contexts: Vec<Context>,
     ) -> Result<(), AccountError> {
-        let pk: BytesN<65> = env
-            .storage()
-            .instance()
-            .get(&Key::PasskeyPubkey)
-            .ok_or(AccountError::PasskeyNotSet)?;
+        match signature {
+            AccountSignature::Passkey(sig) => {
+                let pk: BytesN<65> = env
+                    .storage()
+                    .instance()
+                    .get(&Key::PasskeyPubkey)
+                    .ok_or(AccountError::PasskeyNotSet)?;
+                verify::verify_secp256r1_signature(&env, &signature_payload, &pk, sig);
+            }
+            AccountSignature::Session(sig) => {
+                let session: SessionKey = env
+                    .storage()
+                    .temporary()
+                    .get(&Key::SessionKey)
+                    .ok_or(AccountError::NoActiveSession)?;
 
-        verify::verify_secp256r1_signature(&env, &signature_payload, &pk, signature);
+                // Check expiry
+                if env.ledger().sequence() > session.expiry_ledger {
+                    return Err(AccountError::SessionExpired);
+                }
 
+                // Check scope — every invoked function must be in the allowed list
+                for ctx in auth_contexts.iter() {
+                    if let Context::Contract(c) = ctx {
+                        if c.contract == env.current_contract_address() {
+                            let mut allowed = false;
+                            for s in session.scope.iter() {
+                                if s == c.fn_name {
+                                    allowed = true;
+                                    break;
+                                }
+                            }
+                            if !allowed {
+                                return Err(AccountError::SessionScopeViolation);
+                            }
+                        }
+                    }
+                }
+
+                // Verify ed25519 signature
+                env.crypto().ed25519_verify(
+                    &session.pubkey,
+                    &signature_payload.into(),
+                    &sig,
+                );
+            }
+        }
         Ok(())
     }
 }

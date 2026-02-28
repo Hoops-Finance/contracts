@@ -3,7 +3,7 @@ use hoops_adapter_interface::AdapterError;
 
 #[derive(Clone)]
 #[contracttype]
-enum Key { Amm, Init, Pool(PoolKey) }
+enum Key { Amm, Init, Pool(PoolKey), Factory }
 
 const DAY_LEDGER: u32 = 17_280;
 const BUMP: u32 = 60 * DAY_LEDGER;
@@ -71,4 +71,11 @@ pub fn get_pool_for_tokens(e: &Env, tokens: &Vec<Address>) -> Option<Address> {
     let tokens_sorted = sort_addresses(e, tokens);
     let key = Key::Pool(PoolKey { tokens: tokens_sorted });
     e.storage().instance().get(&key)
+}
+
+pub fn set_factory(e: &Env, factory: &Address) {
+    e.storage().instance().set(&Key::Factory, factory);
+}
+pub fn get_factory(e: &Env) -> Option<Address> {
+    e.storage().instance().get(&Key::Factory)
 }

@@ -7,7 +7,7 @@ mod protocol;
 use storage::*;
 #[allow(unused_imports)]
 use event::*;
-use hoops_adapter_interface::{AdapterTrait, AdapterError};
+use hoops_adapter_interface::{AdapterTrait, AdapterError, PoolInfo};
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec};
 use protocol::phoenix_pair::PhoenixPoolClient;
 
@@ -169,6 +169,72 @@ impl AdapterTrait for PhoenixAdapter {
         Ok((amt_a, amt_b))
     }
 
+    /* ---------- router-facing withdrawal ---------- */
+    fn remove_liq_from_pool(
+        e: Env,
+        pool: Address,
+        lp_amount: i128,
+        to: Address,
+    ) -> (i128, i128) {
+        // LP tokens are already in this adapter (transferred by Router).
+        // Transfer LP shares from adapter to `to` (Account), then withdraw.
+        let pool_client = PhoenixPoolClient::new(&e, &pool);
+        let pool_info = pool_client.query_pool_info();
+        let share_token_addr = pool_info.asset_lp_share.address;
+        token::Client::new(&e, &share_token_addr)
+            .transfer(&e.current_contract_address(), &to, &lp_amount);
+
+        let (amt_a, amt_b) = pool_client.withdraw_liquidity(
+            &to,
+            &lp_amount,
+            &0i128,          // min_a
+            &0i128,          // min_b
+            &None,           // deadline
+            &None,           // auto_unstake
+        );
+        bump(&e);
+        (amt_a, amt_b)
+    }
+
+    /* ---------- pool validation ---------- */
+    fn validate_pool(
+        e: Env,
+        pool_address: Address,
+        token_a: Address,
+        token_b: Address,
+    ) -> Result<PoolInfo, AdapterError> {
+        let factory_addr = get_factory(&e).ok_or(AdapterError::NotInitialized)?;
+        let factory = protocol::phoenix_factory::PhoenixFactoryClient::new(&e, &factory_addr);
+        // This call traps if pool_address is not a Phoenix pool → caught by Router
+        let _pool_response = factory.query_pool_details(&pool_address);
+        // Get pool's actual asset info
+        let pool = PhoenixPoolClient::new(&e, &pool_address);
+        let pool_info = pool.query_pool_info();
+        let pa = pool_info.asset_a.address;
+        let pb = pool_info.asset_b.address;
+        let (ca, cb) = if token_a < token_b {
+            (token_a, token_b)
+        } else {
+            (token_b, token_a)
+        };
+        let (qa, qb) = if pa < pb {
+            (pa, pb)
+        } else {
+            (pb, pa)
+        };
+        if qa != ca || qb != cb {
+            return Err(AdapterError::InvalidPool);
+        }
+        let lp_token = pool_info.asset_lp_share.address;
+        Ok(PoolInfo {
+            pool_address,
+            lp_token,
+            token_a: ca,
+            token_b: cb,
+            pool_type: 2, // Phoenix
+        })
+    }
+
     /* ---------- quotes ---------- */
     fn quote_in(e: Env, pool_address: Address, amount_in: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
         if !is_init(&e) {
@@ -201,6 +267,14 @@ impl AdapterTrait for PhoenixAdapter {
 /// Shallow-auth pattern: adapter is the direct caller, no require_auth on `to`.
 #[contractimpl]
 impl PhoenixAdapter {
+    /// Set the Phoenix factory address (one-shot, needed for validate_pool).
+    pub fn set_factory(e: Env, factory: Address) {
+        if storage::get_factory(&e).is_some() {
+            panic!("factory already set");
+        }
+        storage::set_factory(&e, &factory);
+    }
+
     pub fn swap_in_pool(
         e: Env,
         amt_in: i128,

@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contractclient, contractspecfn, contracterror, Address, Env, Vec, BytesN};
+use soroban_sdk::{contractclient, contractspecfn, contracterror, contracttype, Address, Env, Vec, BytesN};
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -25,6 +25,17 @@ pub enum AdapterError {
     InsufficientBalance = 211,
     InsufficientLiquidity = 212,
     PairNotFound = 213,
+    InvalidPool = 214,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PoolInfo {
+    pub pool_address: Address,
+    pub lp_token: Address,
+    pub token_a: Address,
+    pub token_b: Address,
+    pub pool_type: u32,
 }
 
 pub struct Spec;
@@ -82,4 +93,25 @@ pub trait AdapterTrait {
         to: Address,
         deadline: u64,
     ) -> Result<(i128,i128), AdapterError>;
+
+    /* -------- direct pool withdrawal (called by Router) --------------- */
+    /// Withdraw liquidity directly from a pool. LP tokens are pre-transferred
+    /// to the adapter by the Router. The adapter handles protocol-specific
+    /// withdrawal and sends reserve tokens to `to` (the Account).
+    fn remove_liq_from_pool(
+        e: Env,
+        pool: Address,
+        lp_amount: i128,
+        to: Address,
+    ) -> (i128, i128);
+
+    /* -------- pool validation (called by Router for lazy registration) -- */
+    /// Validate that a pool address is a legitimate pool on this protocol
+    /// for the given token pair. Returns pool metadata on success.
+    fn validate_pool(
+        e: Env,
+        pool_address: Address,
+        token_a: Address,
+        token_b: Address,
+    ) -> Result<PoolInfo, AdapterError>;
 }

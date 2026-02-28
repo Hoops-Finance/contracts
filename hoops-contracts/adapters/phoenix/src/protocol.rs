@@ -4,3 +4,10 @@ pub mod phoenix_pair {
     );
     pub type PhoenixPoolClient<'a> = Client<'a>;
 }
+
+pub mod phoenix_factory {
+    soroban_sdk::contractimport!(
+        file = "../../bytecodes/phoenix_factory.wasm"
+    );
+    pub type PhoenixFactoryClient<'a> = Client<'a>;
+}

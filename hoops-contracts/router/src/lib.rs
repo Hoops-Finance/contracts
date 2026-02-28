@@ -4,30 +4,14 @@ mod client;
 mod storage;
 mod types;
 
-use soroban_sdk::{contract, contracterror, contractimpl, panic_with_error, token, Address, Env, IntoVal, String, Symbol, Val, Vec};
+use soroban_sdk::{contract, contracterror, contractimpl, panic_with_error, token, Address, Env, IntoVal, Symbol, Val, Vec};
 
 use crate::storage::{
-    get_adapters, get_core_config, get_markets, set_adapters, set_core_config, set_markets,
+    get_adapters, get_core_config, set_adapters, set_core_config,
+    get_pool, set_pool, get_pools_for_pair, add_pool_to_pair_index,
 };
-use crate::types::{CoreConfig, LpPlan, MarketData};
+use crate::types::{CoreConfig, LpPlan, MarketData, RedeemPlan};
 use hoops_adapter_interface::AdapterClient;
-/*
-pub mod adapter_interface {
-    soroban_sdk::contractimport!(file = "../bytecodes/hoops_adapter_interface.wasm");
-    pub type AdapterClient<'a> = Client<'a>;
-}
-pub use adapter_interface::AdapterClient;*/
-
-pub mod soroswap_factory {
-    soroban_sdk::contractimport!(file = "../bytecodes/soroswap_factory.wasm");
-    pub type SoroswapClient<'a> = Client<'a>;
-}
-pub use soroswap_factory::SoroswapClient;
-pub mod soroswap_pair {
-    soroban_sdk::contractimport!(file = "../bytecodes/soroswap_pair.wasm");
-    pub type SoroswapPairClient<'a> = Client<'a>;
-}
-pub use soroswap_pair::SoroswapPairClient;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -50,7 +34,54 @@ pub enum RouterError {
     InvalidAmount = 209,
     InvalidPath = 210,
     InsufficientBalance = 211,
+    AdapterNotFound = 212,
+    Expired = 213,
+    PoolValidationFailed = 214,
 }
+
+/// Resolve a pool with full token context: return MarketData from persistent
+/// storage, or lazy-validate via the adapter and register the pool.
+fn resolve_pool_with_tokens(
+    e: &Env,
+    pool_address: &Address,
+    adapter_id: i128,
+    token_a: &Address,
+    token_b: &Address,
+) -> MarketData {
+    // Fast path: pool already registered
+    if let Some(market) = get_pool(e, pool_address) {
+        return market;
+    }
+
+    // Slow path: lazy validation via adapter
+    let adapters = get_adapters(e);
+    let Some(adapter_address) = adapters.get(adapter_id) else {
+        panic_with_error!(e, RouterError::AdapterNotFound);
+    };
+
+    let adapter = AdapterClient::new(e, &adapter_address);
+    let result = adapter.try_validate_pool(pool_address, token_a, token_b);
+
+    match result {
+        Ok(Ok(pool_info)) => {
+            let market = MarketData {
+                adapter_id,
+                lp_token: pool_info.lp_token,
+                pool_address: pool_info.pool_address.clone(),
+                pool_type: pool_info.pool_type,
+                token_a: pool_info.token_a.clone(),
+                token_b: pool_info.token_b.clone(),
+            };
+            set_pool(e, &pool_info.pool_address, &market);
+            add_pool_to_pair_index(e, &pool_info.token_a, &pool_info.token_b, &pool_info.pool_address);
+            market
+        }
+        _ => {
+            panic_with_error!(e, RouterError::PoolValidationFailed);
+        }
+    }
+}
+
 pub trait HoopsRouterTrait {
     fn initialize(e: Env, admin: Address);
     fn get_version(e: Env) -> u32;
@@ -77,19 +108,12 @@ pub trait HoopsRouterTrait {
         sender: Address,
         deadline: u64,
     );
-    fn redeem_liquidity(
+    fn batch_redeem_liquidity(
         e: Env,
-        lp_token: Address,
-        lp_amount: i128,
+        plans: Vec<RedeemPlan>,
         sender: Address,
         deadline: u64,
     );
-
-    // Pool discovery
-    fn discover_soroswap_pools(e: Env, factory: Address, pairs_to_check: Vec<(Address, Address)>);
-    fn discover_aqua_pools(e: Env, factory: Address, pairs_to_check: Vec<(Address, Address)>);
-    fn discover_phoenix_pools(e: Env, factory: Address, pairs_to_check: Vec<(Address, Address)>);
-    fn discover_comet_pools(e: Env, factory: Address, pairs_to_check: Vec<(Address, Address)>);
 }
 
 #[contract]
@@ -98,7 +122,7 @@ pub struct HoopsRouter;
 #[contractimpl]
 impl HoopsRouterTrait for HoopsRouter {
     fn initialize(e: Env, admin: Address) {
-        let config = CoreConfig { admin, version: 1 };
+        let config = CoreConfig { admin, version: 2 };
         set_core_config(&e, &config);
     }
 
@@ -124,29 +148,15 @@ impl HoopsRouterTrait for HoopsRouter {
         set_adapters(&e, &adapters);
     }
 
-    /// Add a new market to the router. Example usage:
-    ///
-    /// ```ignore
-    /// router.add_markets(e, vec![MarketData {
-    ///     adapter_id: 0, // protocol id
-    ///     pool_address: ...,
-    ///     lp_token: ...,
-    ///     token_a: ...,
-    ///     token_b: ...,
-    ///     reserve_a: ...,
-    ///     reserve_b: ...,
-    ///     pool_type: 0,
-    /// }]);
-    /// ```
+    /// Admin fallback: register pools directly. Writes to persistent storage + pair index.
     fn add_markets(e: Env, markets_to_add: Vec<MarketData>) {
         let config = get_core_config(&e);
         config.admin.require_auth();
 
-        let mut markets = get_markets(&e);
         for market in markets_to_add.iter() {
-            markets.push_back(market);
+            set_pool(&e, &market.pool_address, &market);
+            add_pool_to_pair_index(&e, &market.token_a, &market.token_b, &market.pool_address);
         }
-        set_markets(&e, &markets);
     }
 
     fn get_all_quotes(
@@ -155,26 +165,15 @@ impl HoopsRouterTrait for HoopsRouter {
         token_in: Address,
         token_out: Address,
     ) -> Vec<crate::types::SwapQuote> {
-        let markets = get_markets(&e);
         let adapters = get_adapters(&e);
         let mut quotes = Vec::new(&e);
 
-        // Canonicalize token order
-        let (token_a, token_b) = if token_in < token_out {
-            (token_in.clone(), token_out.clone())
-        } else {
-            (token_out.clone(), token_in.clone())
-        };
+        // Use token-pair index for O(1) pool lookup
+        let pool_addresses = get_pools_for_pair(&e, &token_in, &token_out);
 
-        for market in markets.iter() {
-            // Only consider pools for this token pair
-            let is_match = market.token_a == token_a && market.token_b == token_b;
-            if !is_match {
-                continue;
-            }
-            let Some(adapter_address) = adapters.get(market.adapter_id) else {
-                continue;
-            };
+        for pool_addr in pool_addresses.iter() {
+            let Some(market) = get_pool(&e, &pool_addr) else { continue; };
+            let Some(adapter_address) = adapters.get(market.adapter_id) else { continue; };
             let adapter = AdapterClient::new(&e, &adapter_address);
             if let Ok(amount_out) = adapter.try_quote_in(&market.pool_address, &amount, &token_in, &token_out) {
                 if amount_out.is_ok() {
@@ -211,39 +210,24 @@ impl HoopsRouterTrait for HoopsRouter {
         best
     }
 
-    fn swap(e: Env, amount: i128, token_in: Address, token_out: Address, best_hop: Address, sender: Address, deadline: u64) {
+    fn swap(e: Env, amount: i128, token_in: Address, token_out: Address, best_hop: Address, sender: Address, _deadline: u64) {
         // Tokens are already in the Router (transferred by the Account contract).
-        // DeFindex pattern: each contract operates in its own auth context,
-        // keeping authorization chains shallow.
-
-        let markets = get_markets(&e);
         let adapters = get_adapters(&e);
 
-        // Look up the market by pool address
-        let mut adapter_id: Option<i128> = None;
-        for market in markets.iter() {
-            if market.pool_address == best_hop {
-                adapter_id = Some(market.adapter_id);
-                break;
-            }
-        }
-
-        let Some(adapter_id) = adapter_id else {
+        // O(1) lookup by pool address
+        let Some(market) = get_pool(&e, &best_hop) else {
             panic_with_error!(&e, RouterError::PoolNotFound);
         };
 
-        let Some(adapter_address) = adapters.get(adapter_id) else {
-            panic_with_error!(&e, RouterError::InvalidID);
+        let Some(adapter_address) = adapters.get(market.adapter_id) else {
+            panic_with_error!(&e, RouterError::AdapterNotFound);
         };
 
         // Transfer tokens from Router to the Adapter.
-        // Router is the direct caller of token → auth succeeds.
         token::Client::new(&e, &token_in)
             .transfer(&e.current_contract_address(), &adapter_address, &amount);
 
         // Delegate to the adapter's swap_in_pool function.
-        // The adapter handles protocol-specific logic: transfers to pool,
-        // calculates output, calls pair.swap(), sends output to sender.
         let mut args: Vec<Val> = Vec::new(&e);
         args.push_back(amount.into_val(&e));
         args.push_back(0i128.into_val(&e));
@@ -264,35 +248,22 @@ impl HoopsRouterTrait for HoopsRouter {
         _amount: i128,
         lp_plans: Vec<LpPlan>,
         sender: Address,
-        deadline: u64,
+        _deadline: u64,
     ) {
         // Tokens are already in the Router (transferred by the Account contract).
-        // Same DeFindex pattern as swap: forward tokens to adapter, delegate.
         let adapters = get_adapters(&e);
-        let markets = get_markets(&e);
 
         for plan in lp_plans.iter() {
             let Some(adapter_address) = adapters.get(plan.adapter_id) else { continue; };
 
-            // Find the pool address for this adapter + token pair
-            let mut pool_address: Option<Address> = None;
-            let (ta, tb) = if plan.token_a < plan.token_b {
-                (plan.token_a.clone(), plan.token_b.clone())
-            } else {
-                (plan.token_b.clone(), plan.token_a.clone())
-            };
-            for market in markets.iter() {
-                if market.adapter_id == plan.adapter_id
-                    && market.token_a == ta
-                    && market.token_b == tb
-                {
-                    pool_address = Some(market.pool_address.clone());
-                    break;
-                }
-            }
-            let Some(pool) = pool_address else {
-                panic_with_error!(&e, RouterError::PoolNotFound);
-            };
+            // Lazy validate / resolve the pool (O(1) if already known)
+            let _market = resolve_pool_with_tokens(
+                &e,
+                &plan.pool_address,
+                plan.adapter_id,
+                &plan.token_a,
+                &plan.token_b,
+            );
 
             // Transfer both tokens from Router to Adapter
             token::Client::new(&e, &plan.token_a)
@@ -300,13 +271,13 @@ impl HoopsRouterTrait for HoopsRouter {
             token::Client::new(&e, &plan.token_b)
                 .transfer(&e.current_contract_address(), &adapter_address, &plan.amount_b);
 
-            // Delegate to adapter's add_liquidity_in_pool
+            // Delegate to adapter's add_liq_in_pool
             let mut args: Vec<Val> = Vec::new(&e);
             args.push_back(plan.token_a.into_val(&e));
             args.push_back(plan.token_b.into_val(&e));
             args.push_back(plan.amount_a.into_val(&e));
             args.push_back(plan.amount_b.into_val(&e));
-            args.push_back(pool.into_val(&e));
+            args.push_back(plan.pool_address.into_val(&e));
             args.push_back(sender.into_val(&e));
 
             let _: i128 = e.invoke_contract(
@@ -317,74 +288,41 @@ impl HoopsRouterTrait for HoopsRouter {
         }
     }
 
-    fn redeem_liquidity(
+    fn batch_redeem_liquidity(
         e: Env,
-        lp_token: Address,
-        lp_amount: i128,
+        plans: Vec<RedeemPlan>,
         sender: Address,
         deadline: u64,
     ) {
-        // Find the adapter for this lp_token
-        let markets = get_markets(&e);
+        let timestamp = e.ledger().timestamp();
+        if timestamp > deadline {
+            panic_with_error!(&e, RouterError::Expired);
+        }
+
         let adapters = get_adapters(&e);
-        let mut found = false;
-        for market in markets.iter() {
-            if market.lp_token == lp_token {
-                let Some(adapter_address) = adapters.get(market.adapter_id) else { continue; };
-                let adapter = AdapterClient::new(&e, &adapter_address);
-                adapter.remove_liquidity(
-                    &lp_token,
-                    &lp_amount,
-                    &0i128,
-                    &0i128,
-                    &sender,
-                    &deadline,
-                );
-                found = true;
-                break;
-            }
-        }
-        if !found {
-            panic!("No adapter found for lp_token");
-        }
-    }
 
-    fn discover_soroswap_pools(e: Env, factory: Address, pairs_to_check: Vec<(Address, Address)>) {
-        let soroswap_factory = soroswap_factory::Client::new(&e, &factory);
-        let mut markets = get_markets(&e);
-
-        for pair in pairs_to_check.iter() {
-            let (token_a, token_b) = pair;
-            let pair_address = soroswap_factory.get_pair(&token_a, &token_b);
-
-            
-            let soroswap_pair = soroswap_pair::Client::new(&e, &pair_address);
-            let reserves = soroswap_pair.get_reserves();
-            let market = MarketData {
-                adapter_id: 3, // Soroswap PROTOCOL_ID
-                pool_address: pair_address.clone(),
-                lp_token: pair_address.clone(),
-                token_a: token_a.clone(),
-                token_b: token_b.clone(),
-                reserve_a: reserves.0,
-                reserve_b: reserves.1,
-                pool_type: 0, // ConstantProduct
-                ledger: e.ledger().sequence(),
+        for plan in plans.iter() {
+            let Some(adapter_address) = adapters.get(plan.adapter_id) else {
+                panic_with_error!(&e, RouterError::AdapterNotFound);
             };
-            markets.push_back(market);
+
+            // Use pool_address directly from the plan — O(1), no Vec scan
+            let pool = plan.pool_address.clone();
+
+            // Transfer LP from Router to Adapter.
+            token::Client::new(&e, &plan.lp_token)
+                .transfer(&e.current_contract_address(), &adapter_address, &plan.lp_amount);
+
+            // Call adapter's remove_liq_from_pool
+            let mut args: Vec<Val> = Vec::new(&e);
+            args.push_back(pool.into_val(&e));
+            args.push_back(plan.lp_amount.into_val(&e));
+            args.push_back(sender.into_val(&e));
+            let _: (i128, i128) = e.invoke_contract(
+                &adapter_address,
+                &Symbol::new(&e, "remove_liq_from_pool"),
+                args,
+            );
         }
-        set_markets(&e, &markets);
-    }
-
-    fn discover_aqua_pools(e: Env, factory: Address, pairs_to_check: Vec<(Address, Address)>) {
-        // Similar logic to Soroswap, but using the Aqua factory and pair contracts
-    }
-
-    fn discover_phoenix_pools(e: Env, factory: Address, pairs_to_check: Vec<(Address, Address)>) {
-        // Similar logic to Soroswap, but using the Phoenix factory and pair contracts
-    }
-
-    fn discover_comet_pools(e: Env, factory: Address, pairs_to_check: Vec<(Address, Address)>) {
-        // Similar logic to Soroswap, but using the Comet factory and pair contracts
     }
 }

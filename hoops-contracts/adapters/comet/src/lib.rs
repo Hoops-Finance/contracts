@@ -9,7 +9,7 @@ use storage::*;
 #[allow(unused_imports)]
 use event::*;
 use protocol::CometPoolClient;
-use hoops_adapter_interface::{AdapterTrait, AdapterError};
+use hoops_adapter_interface::{AdapterTrait, AdapterError, PoolInfo};
 use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env, Vec, I256, unwrap::UnwrapOptimized};
 
 const PROTOCOL_ID: i128 = 1;
@@ -241,6 +241,72 @@ impl AdapterTrait for CometAdapter {
         Ok((actual_a, actual_b))
     }
 
+    /* ---------- router-facing withdrawal ---------- */
+    fn remove_liq_from_pool(
+        e: Env,
+        pool: Address,
+        lp_amount: i128,
+        to: Address,
+    ) -> (i128, i128) {
+        // LP tokens are already in this adapter (transferred by Router).
+        // For Comet, the pool address IS the LP token address.
+        let pool_client = CometPoolClient::new(&e, &pool);
+        let tokens = pool_client.get_tokens();
+        let token_a = tokens.get_unchecked(0);
+        let token_b = tokens.get_unchecked(1);
+
+        let before_a = token::Client::new(&e, &token_a).balance(&to);
+        let before_b = token::Client::new(&e, &token_b).balance(&to);
+
+        let min_amounts_out = Vec::from_array(&e, [0i128, 0i128]);
+        pool_client.exit_pool(&lp_amount, &min_amounts_out, &to);
+
+        let after_a = token::Client::new(&e, &token_a).balance(&to);
+        let after_b = token::Client::new(&e, &token_b).balance(&to);
+        bump(&e);
+        (after_a - before_a, after_b - before_b)
+    }
+
+    /* ---------- pool validation ---------- */
+    fn validate_pool(
+        e: Env,
+        pool_address: Address,
+        token_a: Address,
+        token_b: Address,
+    ) -> Result<PoolInfo, AdapterError> {
+        let factory_addr = get_factory(&e).ok_or(AdapterError::NotInitialized)?;
+        let factory = protocol::comet_factory::CometFactoryClient::new(&e, &factory_addr);
+        if !factory.is_c_pool(&pool_address) {
+            return Err(AdapterError::InvalidPool);
+        }
+        // Verify pool contains both tokens
+        let pool = CometPoolClient::new(&e, &pool_address);
+        let pool_tokens = pool.get_tokens();
+        let mut found_a = false;
+        let mut found_b = false;
+        for t in pool_tokens.iter() {
+            if t == token_a { found_a = true; }
+            if t == token_b { found_b = true; }
+        }
+        if !found_a || !found_b {
+            return Err(AdapterError::InvalidPool);
+        }
+        // Canonicalize
+        let (ca, cb) = if token_a < token_b {
+            (token_a, token_b)
+        } else {
+            (token_b, token_a)
+        };
+        // For Comet, the LP token IS the pool address
+        Ok(PoolInfo {
+            pool_address: pool_address.clone(),
+            lp_token: pool_address,
+            token_a: ca,
+            token_b: cb,
+            pool_type: 3, // Comet
+        })
+    }
+
     /* ---------- quotes ---------- */
     fn quote_in(e: Env, pool_address: Address, amount_in: i128, token_in: Address, token_out: Address) -> Result<i128, AdapterError> {
         if !is_init(&e) {
@@ -289,6 +355,14 @@ pub struct Record {
 /// Shallow-auth pattern: adapter is the direct caller, no require_auth on `to`.
 #[contractimpl]
 impl CometAdapter {
+    /// Set the Comet factory address (one-shot, needed for validate_pool).
+    pub fn set_factory(e: Env, factory: Address) {
+        if storage::get_factory(&e).is_some() {
+            panic!("factory already set");
+        }
+        storage::set_factory(&e, &factory);
+    }
+
     pub fn swap_in_pool(
         e: Env,
         amt_in: i128,
